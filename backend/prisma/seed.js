@@ -7,12 +7,13 @@ function slugify(text) {
     return String(text || "")
         .toLowerCase()
         .trim()
+        .replace(/ё/g, "е")
         .replace(/[^a-zа-я0-9]+/gi, "-")
         .replace(/^-+|-+$/g, "");
 }
 
 function makeUniqueSlugs(articles) {
-    const used = new Map(); // slug -> count
+    const used = new Map();
 
     return articles.map((a) => {
         const base = a.slug && a.slug.trim() ? a.slug.trim() : slugify(a.title);
@@ -26,27 +27,44 @@ function makeUniqueSlugs(articles) {
             slug: uniqueSlug,
             imageUrl: a.imageUrl || `/images/articles/${uniqueSlug}.jpg`,
             imageAlt: a.imageAlt || a.title || uniqueSlug,
+            sources: Array.isArray(a.sources) ? a.sources : [],
+            content: Array.isArray(a.content) ? a.content : [],
+            published: typeof a.published === "boolean" ? a.published : true,
         };
     });
 }
 
 async function main() {
     const articlesRaw = JSON.parse(fs.readFileSync("./articles.json", "utf-8"));
-
-    // 1) делаем slug’и уникальными
     const articles = makeUniqueSlugs(articlesRaw);
 
-    // 2) очищаем таблицу (если хочешь именно “перезаливку”)
-    await prisma.article.deleteMany();
-
-    // 3) заливаем
     for (const article of articles) {
-        await prisma.article.create({ data: article });
+        await prisma.article.upsert({
+            where: { slug: article.slug },
+            update: {
+                title: article.title,
+                authorName: article.authorName,
+                authorBio: article.authorBio || null,
+                category: article.category,
+                annotation: article.annotation,
+                imageUrl: article.imageUrl,
+                imageAlt: article.imageAlt,
+                content: article.content,
+                sources: article.sources,
+                published: article.published,
+            },
+            create: article,
+        });
     }
 
-    console.log(`Залито статей: ${articles.length}`);
+    console.log(`Залито/обновлено статей: ${articles.length}`);
 }
 
 main()
-    .catch((e) => console.error(e))
-    .finally(() => prisma.$disconnect());
+    .catch((e) => {
+        console.error(e);
+        process.exit(1);
+    })
+    .finally(async () => {
+        await prisma.$disconnect();
+    });
