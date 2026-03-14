@@ -15,7 +15,7 @@ app = FastAPI()
 # Разрешаем запросы с фронта (Next.js)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # при необходимости добавь свой домен
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # при необходимости добавь свой домен
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

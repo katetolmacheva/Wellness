@@ -189,7 +189,7 @@ export default function AiPage() {
     const generateTitle = async (text: string) => {
         if (!API) return null;
 
-        const r = await fetch(`${API}/generate-title`, {
+        const r = await fetch(`http://127.0.0.1:8000/generate-title`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text }),
@@ -283,7 +283,7 @@ export default function AiPage() {
             // }));
 
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
+            const res = await fetch(`api/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -321,7 +321,7 @@ export default function AiPage() {
             if (currentChat && currentChat.messages.length === 0) {
                 try {
                     const titleRes = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL}/generate-title`,
+                        `api/generate-title`,
                         {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -429,19 +429,20 @@ export default function AiPage() {
                                                 className={`${styles.chatItem} ${active ? styles.chatItemActive : ""}`}
                                                 onClick={() => setActiveChatId(c.id)}
                                             >
-                                                {c.title}
-                                            </button>
+                                                <span className={styles.chatTitle}>{c.title}</span>
 
-                                            <button
-                                                type="button"
-                                                className={styles.chatMenuBtn}
-                                                aria-label="Меню"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setMenuForChatId((prev) => (prev === c.id ? null : c.id));
-                                                }}
-                                            >
-                                                <DotsIcon />
+                                                <span
+                                                    className={styles.chatMenuBtn}
+                                                    role="button"
+                                                    aria-label="Меню"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        setMenuForChatId((prev) => (prev === c.id ? null : c.id));
+                                                    }}
+                                                >
+      <DotsIcon />
+    </span>
                                             </button>
 
                                             {menuForChatId === c.id && (
@@ -455,6 +456,7 @@ export default function AiPage() {
                                                 </div>
                                             )}
                                         </div>
+
                                     );
                                 })
                             )}

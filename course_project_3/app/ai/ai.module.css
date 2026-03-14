@@ -171,14 +171,18 @@
 
 
 .chatItem {
+    width: 100%;
     border: none;
     background: transparent;
     color: #e8e8e8;
     padding: 10px 12px;
     border-radius: 999px;
-    text-align: left;
     cursor: pointer;
     font-size: 14px;
+
+    display: flex;              /* ✅ */
+    align-items: center;        /* ✅ */
+    gap: 10px;                  /* ✅ */
 }
 
 .chatItemActive {
@@ -494,9 +498,6 @@
 
 .chatRow {
     position: relative;
-    display: flex;
-    align-items: center;
-    gap: 10px;
 }
 
 .chatMenuBtn {
