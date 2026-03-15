@@ -214,46 +214,10 @@
     max-width: 220px;
 }
 
-.searchLine {
-    width: 125px;
-    height: 24px;
-    border-bottom: 2px solid #aeb4bf;
-    color: #aeb4bf;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
-}
-
-.filterTags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 10px;
-    width: 170px;
-}
-
 .cardTags {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-}
-
-.smallTag {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 28px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: #dfe1e6;
-    color: #666;
-    font-size: 13px;
-    white-space: nowrap;
-}
-
-.smallTagDark {
-    background: #3d3d3d;
-    color: #fff;
 }
 
 .savedGrid {
@@ -605,6 +569,138 @@
     color: #bcc1c9;
     font-size: 16px;
     cursor: pointer;
+}
+
+.noResults {
+    font-size: 16px;
+    color: #8f949d;
+    padding: 40px 0;
+    grid-column: span 3;
+}
+.searchRow {
+    position: relative;
+    width: 100%;
+    margin-bottom: 18px;
+    padding-top: 16px;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 0;
+    top: 20px;
+    width: 18px;
+    height: 18px;
+    color: #111;
+    display: block;
+}
+
+.searchInput {
+    width: 100%;
+    border: none;
+    border-bottom: 2px solid #222;
+    background: transparent;
+    outline: none;
+    padding: 6px 0 4px 28px;
+    font-size: 14px;
+    color: #333;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 10px 0 10px;
+}
+
+.tag {
+    border: none;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #e1e1e1;
+    color: #333;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.tagActive {
+    background: #2a2a2a;
+    color: #fff;
+}
+
+.cardTagsLine {
+    margin-top: 6px;
+    color: #4a4a4a;
+    font-size: 16px;
+    line-height: 1.45;
+    font-weight: 400;
+}
+
+.articleMetaInline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+    color: #8f949d;
+    font-size: 14px;
+    line-height: 1.2;
+    flex-wrap: wrap;
+}
+
+.metaDot {
+    font-size: 18px;
+    line-height: 1;
+    transform: translateY(-1px);
+}
+
+.cardTagsPills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.cardTagPill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 25px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #dedee0;
+    color: #4a4a4a;
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 400;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.tag {
+    border: none;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: #dfdfe1;
+    color: #4a4a4a;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+
+.tagActive {
+    background: #2f2f31;
+    color: #fff;
+}
+
+.cardTagPillActive {
+    background: #2f2f31;
+    color: #fff;
 }
 
 @media (max-width: 1100px) {

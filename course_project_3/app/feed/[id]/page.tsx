@@ -9,6 +9,14 @@ type ArticleBlock =
     | { type: "ordered-list"; items: string[] }
     | { type: "quote"; text: string };
 
+type ArticleSource =
+    | string
+    | {
+    url?: string;
+    type?: string;
+    title?: string;
+};
+
 type Article = {
     id: string;
     title: string;
@@ -21,28 +29,31 @@ type Article = {
     imageAlt?: string;
     createdAt?: string;
     content?: ArticleBlock[];
-    sources?: string[];
+    sources?: ArticleSource[];
 };
 
 function formatRuDate(dateStr?: string) {
     if (!dateStr) return "";
     const d = new Date(dateStr);
     if (Number.isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("ru-RU", { day: "2-digit", month: "long", year: "numeric" });
+    return d.toLocaleDateString("ru-RU", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+    });
 }
 
 function absAssetUrl(apiBase: string, url?: string) {
     if (!url) return "";
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
 
-    // ✅ если это путь к картинке из public Next.js — оставляем как есть (будет 3000)
+    // если это картинка из public Next.js
     if (url.startsWith("/images/")) return url;
 
     // иначе это ассет бэка
     if (url.startsWith("/")) return `${apiBase}${url}`;
     return `${apiBase}/${url}`;
 }
-
 
 function renderBlock(b: ArticleBlock, key: number) {
     switch (b.type) {
@@ -53,6 +64,7 @@ function renderBlock(b: ArticleBlock, key: number) {
             if (lvl === 3) return <h3 key={key} className={styles.h3}>{b.text}</h3>;
             return <h4 key={key} className={styles.h4}>{b.text}</h4>;
         }
+
         case "bullet-list":
             return (
                 <ul key={key} className={styles.ul}>
@@ -61,6 +73,7 @@ function renderBlock(b: ArticleBlock, key: number) {
                     ))}
                 </ul>
             );
+
         case "ordered-list":
             return (
                 <ol key={key} className={styles.ol}>
@@ -69,22 +82,54 @@ function renderBlock(b: ArticleBlock, key: number) {
                     ))}
                 </ol>
             );
+
         case "quote":
             return (
                 <blockquote key={key} className={styles.quote}>
                     {b.text}
                 </blockquote>
             );
+
         default:
             return <p key={key} className={styles.p}>{b.text}</p>;
     }
 }
 
-// ✅ В Next 16 params может приходить как Promise — поэтому так:
+function renderSource(source: ArticleSource, key: number) {
+    if (typeof source === "string") {
+        return (
+            <li key={key} className={styles.li}>
+                {source}
+            </li>
+        );
+    }
+
+    const title = source.title || source.url || "Источник";
+    const type = source.type ? ` (${source.type})` : "";
+
+    if (source.url) {
+        return (
+            <li key={key} className={styles.li}>
+                <a href={source.url} target="_blank" rel="noreferrer">
+                    {title}
+                </a>
+                {type}
+            </li>
+        );
+    }
+
+    return (
+        <li key={key} className={styles.li}>
+            {title}
+            {type}
+        </li>
+    );
+}
+
+// Next 16: params может быть Promise
 export default async function ArticlePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    // БЭК (express) у тебя на 3001
     const base = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
     const url = `${base}/api/articles/id/${encodeURIComponent(id)}`;
 
@@ -113,7 +158,6 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
     const cover = absAssetUrl(base, article.imageUrl);
     const date = formatRuDate(article.createdAt);
 
-    // ⬇️ ключевая штука: на мобилке будет ОДНА колонка, без фиксированных высот
     return (
         <div className={styles.page}>
             <header className={styles.topbar}>
@@ -135,7 +179,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
                     <h1 className={styles.bigTitle}>{article.title}</h1>
 
                     <div className={styles.tags}>
-                        {article.category && <span className={styles.tag}>{article.category.toLowerCase()}</span>}
+                        {article.category && (
+                            <span className={styles.tag}>{article.category.toLowerCase()}</span>
+                        )}
                     </div>
 
                     {article.annotation && <p className={styles.lead}>{article.annotation}</p>}
@@ -164,21 +210,16 @@ export default async function ArticlePage({ params }: { params: Promise<{ id: st
                             <details className={styles.sourcesDetails}>
                                 <summary className={styles.sourcesSummary}>
                                     <span className={styles.sourcesTitle}>Источники</span>
-                                    <span className={styles.sourcesHint}>
-          ({article.sources.length})
-        </span>
+                                    <span className={styles.sourcesHint}>({article.sources.length})</span>
                                     <span className={styles.sourcesChevron} aria-hidden />
                                 </summary>
 
                                 <ol className={styles.ol}>
-                                    {article.sources.map((s, i) => (
-                                        <li key={i} className={styles.li}>{s}</li>
-                                    ))}
+                                    {article.sources.map((s, i) => renderSource(s, i))}
                                 </ol>
                             </details>
                         </section>
                     )}
-
                 </section>
             </main>
         </div>

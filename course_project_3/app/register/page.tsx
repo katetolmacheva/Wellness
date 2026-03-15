@@ -47,7 +47,7 @@ export default function RegisterPage() {
         }
 
         setLoading(false);
-        router.push('/register/role');
+        router.push(`/register/verify?email=${encodeURIComponent(normalizedEmail)}`);
     };
 
     return (

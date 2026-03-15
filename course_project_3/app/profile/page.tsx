@@ -66,9 +66,11 @@ function PlusIcon() {
 function StatArticleCard({
                              article,
                              compact = false,
+                             activeTag,
                          }: {
     article: ProfileArticle;
     compact?: boolean;
+    activeTag: string;
 }) {
     return (
         <article className={`${styles.articleCard} ${compact ? styles.articleCardCompact : ""}`}>
@@ -78,26 +80,39 @@ function StatArticleCard({
 
             <h3 className={styles.articleTitle}>{article.title}</h3>
 
-            <div className={styles.cardTags}>
-                {article.tags.map((tag) => (
-                    <span key={tag} className={styles.smallTag}>
-            {tag}
-          </span>
-                ))}
+            <div className={styles.cardTagsPills}>
+                {article.tags.map((tag) => {
+                    const isActive =
+                        activeTag !== "все" &&
+                        tag.toLowerCase() === activeTag.toLowerCase();
+
+                    return (
+                        <span
+                            key={tag}
+                            className={`${styles.cardTagPill} ${isActive ? styles.cardTagPillActive : ""}`}
+                        >
+                {tag}
+            </span>
+                    );
+                })}
             </div>
 
-            <div className={styles.articleMeta}>
-                <span>{article.author ?? "Мария Петрова"}</span>
-                <span>•</span>
-                <span>{article.date ?? "13 января 2024 г."}</span>
+            <div className={styles.articleMetaInline}>
+                <span>{article.author ?? "Е.В. Царева"}</span>
+                <span className={styles.metaDot}>•</span>
+                <span>{article.date ?? "14 марта 2026 г."}</span>
             </div>
         </article>
     );
 }
 
+
 export default function ProfilePage() {
     const [role] = useState<Role>("expert");
     const [tab, setTab] = useState<"saved" | "created">("created");
+    const [search, setSearch] = useState("");
+    const [activeTag, setActiveTag] = useState("все");
+
 
     const favoriteTopics = [
         "Йога",
@@ -190,6 +205,24 @@ export default function ProfilePage() {
         },
     ];
 
+    const filterArticles = (articles: ProfileArticle[]) => {
+        return articles.filter((article) => {
+            const matchesSearch =
+                search.trim() === "" ||
+                article.title.toLowerCase().includes(search.toLowerCase()) ||
+                article.tags.some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
+
+            const matchesTag =
+                activeTag === "все" ||
+                article.tags.some((tag) => tag.toLowerCase() === activeTag.toLowerCase());
+
+            return matchesSearch && matchesTag;
+        });
+    };
+
+    const filteredSavedArticles = filterArticles(savedArticles);
+    const filteredCreatedArticles = filterArticles(createdArticles);
+
     const createdActionText = role === "expert" ? "МОИ СТАТЬИ" : "";
     const shouldShowCreatedGrid = role === "expert";
 
@@ -270,26 +303,51 @@ export default function ProfilePage() {
 
                         <section className={styles.contentArea}>
                             <aside className={styles.filters}>
-                                <div className={styles.searchLine}>
-                                    <SearchIcon />
+                                <div className={styles.searchRow}>
+                               <span className={styles.searchIcon}>
+                                 <SearchIcon />
+                               </span>
+
+                                    <input
+                                        type="text"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder=""
+                                        className={styles.searchInput}
+                                    />
                                 </div>
 
-                                <div className={styles.filterTags}>
-                                    {filterTags.map((tag, i) => (
-                                        <span
-                                            key={tag}
-                                            className={`${styles.smallTag} ${i === 0 ? styles.smallTagDark : ""}`}
-                                        >
-                      {tag}
-                    </span>
-                                    ))}
+                                <div className={styles.tags}>
+                                    {filterTags.map((tag) => {
+                                        const isActive = activeTag === tag;
+
+                                        return (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                onClick={() => setActiveTag(tag)}
+                                                className={`${styles.tag} ${isActive ? styles.tagActive : ""}`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </aside>
 
                             <div className={styles.savedGrid}>
-                                {savedArticles.map((article) => (
-                                    <StatArticleCard key={article.id} article={article} compact />
-                                ))}
+                                {filteredSavedArticles.length > 0 ? (
+                                    filteredSavedArticles.map((article) => (
+                                        <StatArticleCard
+                                            key={article.id}
+                                            article={article}
+                                            compact
+                                            activeTag={activeTag}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className={styles.noResults}>Ничего не найдено</div>
+                                )}
                             </div>
                         </section>
                     </>
@@ -301,28 +359,53 @@ export default function ProfilePage() {
 
                         <section className={styles.contentArea}>
                             <aside className={styles.filters}>
-                                <div className={styles.searchLine}>
-                                    <SearchIcon />
+                                <div className={styles.searchRow}>
+        <span className={styles.searchIcon}>
+            <SearchIcon />
+        </span>
+
+                                    <input
+                                        type="text"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                        placeholder=""
+                                        className={styles.searchInput}
+                                    />
                                 </div>
 
-                                <div className={styles.filterTags}>
-                                    {filterTags.map((tag, i) => (
-                                        <span
-                                            key={tag}
-                                            className={`${styles.smallTag} ${i === 0 ? styles.smallTagDark : ""}`}
-                                        >
-                      {tag}
-                    </span>
-                                    ))}
+                                <div className={styles.tags}>
+                                    {filterTags.map((tag) => {
+                                        const isActive = activeTag === tag;
+
+                                        return (
+                                            <button
+                                                key={tag}
+                                                type="button"
+                                                onClick={() => setActiveTag(tag)}
+                                                className={`${styles.tag} ${isActive ? styles.tagActive : ""}`}
+                                            >
+                                                {tag}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </aside>
 
                             <div className={styles.createdGrid}>
-                                {createdArticles.map((article) => (
-                                    <StatArticleCard key={article.id} article={article} compact />
-                                ))}
+                                {filteredCreatedArticles.length > 0 ? (
+                                    filteredCreatedArticles.map((article) => (
+                                        <StatArticleCard
+                                            key={article.id}
+                                            article={article}
+                                            compact
+                                            activeTag={activeTag}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className={styles.noResults}>Ничего не найдено</div>
+                                )}
 
-                                <button type="button" className={styles.addArticleCard} aria-label="Создать статью">
+                                <button className={styles.addArticleCard}>
                                     <PlusIcon />
                                 </button>
                             </div>
