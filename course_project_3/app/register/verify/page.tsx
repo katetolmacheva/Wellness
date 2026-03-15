@@ -123,7 +123,7 @@ export default function VerifyCodePage() {
 
         try {
             // сюда потом подставишь свой реальный эндпоинт
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001"}/api/auth/verify-code`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001"}/auth/verify-email`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -156,9 +156,10 @@ export default function VerifyCodePage() {
 
         try {
             // сюда потом подставишь свой реальный эндпоинт
-            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001"}/api/auth/resend-code`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001"}/auth/resend-verification`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
             });
 
             if (!res.ok) {

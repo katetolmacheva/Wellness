@@ -73,8 +73,8 @@ async function register(req, res) {
     try {
         const { email, password, firstName, lastName, role, diplomaInfo, bio } = req.body;
 
-        if (!email || !password || !firstName || !lastName || !role) {
-            return res.status(400).json({ message: "Заполни все обязательные поля" });
+        if (!email || !password) {
+            return res.status(400).json({ message: "Email и пароль обязательны" });
         }
 
         const normalizedEmail = email.toLowerCase().trim();
@@ -118,9 +118,9 @@ async function register(req, res) {
             data: {
                 email: normalizedEmail,
                 password: passwordHash,
-                first_name: firstName.trim(),
-                last_name: lastName.trim(),
-                role,
+                first_name: firstName?.trim() || "",
+                last_name: lastName?.trim() || "",
+                role: role || "user",
                 is_verified: false,
                 is_email_verified: false,
                 diploma_info: role === "expert" ? (diplomaInfo || null) : null,

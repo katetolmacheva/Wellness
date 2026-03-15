@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import styles from './register.module.css';
 
-const MOCK_EXISTING_EMAILS = ['oreshki.big.bob@gmail.com', 'test@mail.com'];
-
 export default function RegisterPage() {
     const router = useRouter();
 
     const [email, setEmail] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [pass1, setPass1] = useState('');
     const [pass2, setPass2] = useState('');
 
@@ -30,24 +30,40 @@ export default function RegisterPage() {
         if (loading) return;
 
         if (!normalizedEmail) return showToast('Введите e-mail');
+        if (!firstName.trim()) return showToast('Введите имя');
+        if (!lastName.trim()) return showToast('Введите фамилию');
         if (!pass1) return showToast('Введите пароль');
         if (pass1.length < 6) return showToast('Пароль минимум 6 символов');
         if (pass1 !== pass2) return showToast('Пароли не совпадают');
 
         setLoading(true);
 
-        // имитация запроса
-        await new Promise((r) => setTimeout(r, 250));
-        const exists = MOCK_EXISTING_EMAILS.includes(normalizedEmail);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: normalizedEmail,
+                    password: pass1,
+                    firstName: firstName.trim(),
+                    lastName: lastName.trim(),
+                    role: 'user',
+                }),
+            });
 
-        if (exists) {
+            const data = await res.json();
+
+            if (!res.ok) {
+                showToast(data.message || 'Ошибка регистрации');
+                return;
+            }
+
+            router.push(`/register/verify?email=${encodeURIComponent(normalizedEmail)}`);
+        } catch {
+            showToast('Не удалось связаться с сервером');
+        } finally {
             setLoading(false);
-            showToast('Аккаунт с такой почтой уже есть');
-            return;
         }
-
-        setLoading(false);
-        router.push(`/register/verify?email=${encodeURIComponent(normalizedEmail)}`);
     };
 
     return (
@@ -55,7 +71,6 @@ export default function RegisterPage() {
             <div className={styles.content}>
                 <h1 className={styles.title}>Регистрация</h1>
 
-                {/* toast как на макете */}
                 {toast && (
                     <div className={styles.toastWrap} aria-live="polite">
                         <div className={styles.toast}>{toast}</div>
@@ -73,6 +88,30 @@ export default function RegisterPage() {
                             autoComplete="email"
                         />
                         <label className={styles.label}>E-mail</label>
+                    </div>
+
+                    <div className={styles.field}>
+                        <input
+                            className={styles.input}
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            placeholder=" "
+                            autoComplete="given-name"
+                        />
+                        <label className={styles.label}>Имя</label>
+                    </div>
+
+                    <div className={styles.field}>
+                        <input
+                            className={styles.input}
+                            type="text"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            placeholder=" "
+                            autoComplete="family-name"
+                        />
+                        <label className={styles.label}>Фамилия</label>
                     </div>
 
                     <div className={styles.field}>
