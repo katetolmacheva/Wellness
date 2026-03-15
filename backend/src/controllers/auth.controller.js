@@ -9,21 +9,51 @@ function generateCode() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-const smtpPort = Number(process.env.SMTP_PORT || 465);
+function getSmtpConfig() {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const smtpFrom = process.env.SMTP_FROM;
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: smtpPort,
-    secure: smtpPort === 465,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-    },
-});
+    const missing = [];
+    if (!smtpHost) missing.push("SMTP_HOST");
+    if (!smtpUser) missing.push("SMTP_USER");
+    if (!smtpPass) missing.push("SMTP_PASS");
+    if (!smtpFrom) missing.push("SMTP_FROM");
+
+    if (missing.length > 0) {
+        throw new Error(`SMTP is not configured. Missing env vars: ${missing.join(", ")}`);
+    }
+
+    return {
+        smtpHost,
+        smtpUser,
+        smtpPass,
+        smtpFrom,
+        smtpPort,
+    };
+}
+
+function createTransporter() {
+    const cfg = getSmtpConfig();
+    return nodemailer.createTransport({
+        host: cfg.smtpHost,
+        port: cfg.smtpPort,
+        secure: cfg.smtpPort === 465,
+        auth: {
+            user: cfg.smtpUser,
+            pass: cfg.smtpPass,
+        },
+    });
+}
 
 async function sendVerificationEmail(email, code) {
+    const cfg = getSmtpConfig();
+    const transporter = createTransporter();
+
     await transporter.sendMail({
-        from: process.env.SMTP_FROM,
+        from: cfg.smtpFrom,
         to: email,
         subject: "Код подтверждения Wellness",
         html: `
@@ -54,7 +84,28 @@ async function register(req, res) {
         });
 
         if (existingUser) {
-            return res.status(409).json({ message: "Пользователь с такой почтой уже существует" });
+            if (existingUser.is_email_verified) {
+                return res.status(409).json({ message: "Пользователь с такой почтой уже существует" });
+            }
+
+            const code = generateCode();
+
+            await prisma.emailVerificationCode.create({
+                data: {
+                    user_id: existingUser.id,
+                    email: existingUser.email,
+                    code,
+                    expires_at: new Date(Date.now() + 10 * 60 * 1000),
+                    used: false,
+                },
+            });
+
+            await sendVerificationEmail(existingUser.email, code);
+
+            return res.status(200).json({
+                message: "Аккаунт уже создан, отправили новый код подтверждения",
+                email: existingUser.email,
+            });
         }
 
         if (role === "expert" && !diplomaInfo) {
@@ -164,6 +215,52 @@ async function verifyEmail(req, res) {
     }
 }
 
+async function resendVerificationCode(req, res) {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: "Email обязателен" });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        const user = await prisma.user.findUnique({
+            where: { email: normalizedEmail },
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: "Пользователь не найден" });
+        }
+
+        if (user.is_email_verified) {
+            return res.status(400).json({ message: "Почта уже подтверждена" });
+        }
+
+        const code = generateCode();
+
+        await prisma.emailVerificationCode.create({
+            data: {
+                user_id: user.id,
+                email: user.email,
+                code,
+                expires_at: new Date(Date.now() + 10 * 60 * 1000),
+                used: false,
+            },
+        });
+
+        await sendVerificationEmail(user.email, code);
+
+        return res.json({ message: "Новый код отправлен", email: user.email });
+    } catch (error) {
+        console.error("resendVerificationCode error:", error);
+        return res.status(500).json({
+            message: "Ошибка повторной отправки кода",
+            error: error.message,
+        });
+    }
+}
+
 async function login(req, res) {
     try {
         const { email, password } = req.body;
@@ -224,5 +321,6 @@ async function login(req, res) {
 module.exports = {
     register,
     verifyEmail,
+    resendVerificationCode,
     login,
 };

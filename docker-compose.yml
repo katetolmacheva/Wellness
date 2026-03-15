@@ -22,17 +22,11 @@ services:
         context: ./backend
         dockerfile: Dockerfile
       container_name: wellness_backend
+      env_file:
+        - ./backend/.env
       environment:
         DATABASE_URL: postgresql://postgres:postgres@db:5432/cursach_db?schema=public
-        GROQ_API_KEY: ${GROQ_API_KEY}
         PORT: 3001
-
-        JWT_SECRET: ${JWT_SECRET}
-        SMTP_HOST: ${SMTP_HOST}
-        SMTP_PORT: ${SMTP_PORT}
-        SMTP_USER: ${SMTP_USER}
-        SMTP_PASS: ${SMTP_PASS}
-        SMTP_FROM: ${SMTP_FROM}
 
         DEBUG_AUTH_NO_EMAIL: "true"
 
