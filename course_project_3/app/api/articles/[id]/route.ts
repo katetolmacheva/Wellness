@@ -9,7 +9,8 @@ export async function GET(
   const base =
     process.env.BACKEND_URL ||
     process.env.ARTICLES_API_URL ||
-    "http://localhost:3001";
+    process.env.NEXT_PUBLIC_API_URL ||
+    "https://wellness-production-b0b2.up.railway.app";
 
   const res = await fetch(`${base}/api/articles/id/${id}`, {
     cache: "no-store",
