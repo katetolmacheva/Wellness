@@ -164,7 +164,7 @@ def chat(body: ChatIn):
             model="llama-3.1-8b-instant",
             messages=messages,
             temperature=0.3,
-            max_tokens=512,
+            max_tokens=1000000,
         )
 
         answer = (resp.choices[0].message.content or "").strip()
