@@ -18,33 +18,15 @@ export async function POST(req: Request) {
 
         const text = await upstream.text();
 
-        if (!upstream.ok) {
-            return NextResponse.json(
-                {
-                    error: "Upstream /chat failed",
-                    status: upstream.status,
-                    body: text,
-                },
-                { status: 502 }
-            );
-        }
-
-        try {
-            return NextResponse.json(JSON.parse(text));
-        } catch {
-            return NextResponse.json(
-                {
-                    error: "Upstream /chat returned invalid JSON",
-                    body: text,
-                },
-                { status: 502 }
-            );
-        }
+        return new NextResponse(text, {
+            status: upstream.status,
+            headers: { "Content-Type": "application/json" },
+        });
     } catch (error) {
         return NextResponse.json(
             {
-                error: "Chat proxy crashed",
-                details: error instanceof Error ? error.message : "Unknown error",
+                error: "chat proxy crashed",
+                details: error instanceof Error ? error.message : "unknown",
             },
             { status: 502 }
         );
