@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import styles from "./profile.module.css";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Role = "user" | "expert";
 
@@ -15,6 +15,19 @@ type ProfileArticle = {
     date?: string;
     views?: number;
     updatedText?: string;
+};
+
+type ProfileData = {
+    id: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: "user" | "expert";
+    is_verified: boolean;
+    is_email_verified: boolean;
+    diploma_info: string | null;
+    bio: string | null;
+    interests: { id: number; name: string; description?: string | null }[];
 };
 
 function ArrowLeftIcon() {
@@ -108,21 +121,48 @@ function StatArticleCard({
 
 
 export default function ProfilePage() {
-    const [role] = useState<Role>("expert");
+    const [profile, setProfile] = useState<ProfileData | null>(null);
+    const [isProfileLoaded, setIsProfileLoaded] = useState(false);
+
+
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        setIsProfileLoaded(true);
+
+        const loadProfile = async () => {
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/profile/me`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.message || "Не удалось загрузить профиль");
+                }
+
+                setProfile(data);
+            } catch (error) {
+                console.error("Ошибка загрузки профиля", error);
+            }
+        };
+
+        void loadProfile();
+    }, []);
+
+
+
     const [tab, setTab] = useState<"saved" | "created">("created");
     const [search, setSearch] = useState("");
     const [activeTag, setActiveTag] = useState("все");
 
 
-    const favoriteTopics = [
-        "Йога",
-        "Спорт",
-        "Правильно питание",
-        "Витамины и БАДы",
-        "Витамины и БАДы",
-    ];
-
     const filterTags = ["все", "гибкость", "бодрость", "витамины", "ментальное здоровье"];
+
+
 
     const savedArticles: ProfileArticle[] = [
         {
@@ -220,17 +260,29 @@ export default function ProfilePage() {
         });
     };
 
+
     const filteredSavedArticles = filterArticles(savedArticles);
     const filteredCreatedArticles = filterArticles(createdArticles);
 
-    const createdActionText = role === "expert" ? "МОИ СТАТЬИ" : "";
-    const shouldShowCreatedGrid = role === "expert";
+    const role = profile?.role ?? "user";
+    const canPublish = profile?.role === "expert" && profile?.is_verified;
+    const displayName = profile
+        ? `${profile.first_name} ${profile.last_name}`.trim()
+        : "Пользователь";
+    const favoriteTopics = profile?.interests?.map((item) => item.name) ?? [];
+
+    const createdActionText = canPublish ? "МОИ СТАТЬИ" : "";
+    const shouldShowCreatedGrid = canPublish;
 
     const mainTitle = useMemo(() => {
         if (tab === "saved") return "МОИ ПОДБОРКИ";
-        if (role === "expert") return "МОИ СТАТЬИ";
+        if (canPublish) return "МОИ СТАТЬИ";
         return "";
-    }, [tab, role]);
+    }, [tab, canPublish]);
+
+    if (!profile) {
+        return <div className={styles.loader}>Загрузка профиля...</div>;
+    }
 
     return (
         <div className={styles.page}>
@@ -257,9 +309,12 @@ export default function ProfilePage() {
 
                 <section className={styles.profileHead}>
                     <div className={styles.avatar}></div>
-                    <h1 className={styles.userName}>Татьяна</h1>
+                    <h1 className={styles.userName}>{displayName}</h1>
+
                     {role === "expert" ? (
-                        <span className={styles.roleBadge}>Эксперт</span>
+                        <span className={styles.roleBadge}>
+        {profile?.is_verified ? "Подтверждённый эксперт" : "Эксперт · на проверке"}
+    </span>
                     ) : (
                         <span className={styles.userRole}>Пользователь</span>
                     )}
@@ -273,9 +328,6 @@ export default function ProfilePage() {
                 {topic}
               </span>
                         ))}
-                        <button className={styles.addTopicBtn} type="button" aria-label="Добавить тему">
-                            <PlusIcon />
-                        </button>
                     </div>
                 </section>
 
@@ -353,7 +405,7 @@ export default function ProfilePage() {
                     </>
                 )}
 
-                {tab === "created" && role === "expert" && (
+                {tab === "created" && canPublish && (
                     <>
                         <h2 className={styles.contentTitle}>{createdActionText}</h2>
 
@@ -413,20 +465,18 @@ export default function ProfilePage() {
                     </>
                 )}
 
-                {tab === "created" && role === "user" && !shouldShowCreatedGrid && (
+                {tab === "created" && !canPublish && (
                     <section className={styles.emptyState}>
                         <h2 className={styles.emptyTitle}>
-                            Чтобы публиковать свои статьи на нашей
-                            <br />
-                            платформе, необходимо подтвердить свою
-                            <br />
-                            экспертность.
+                            {role === "user"
+                                ? "Чтобы публиковать статьи, подтвердите свою экспертность."
+                                : "Ваши документы ещё проверяются."}
                         </h2>
 
                         <p className={styles.emptyText}>
-                            Просто прикрепите сканы документов, а об
-                            <br />
-                            остальном мы позаботимся
+                            {role === "user"
+                                ? "Загрузите диплом или сертификат в профиле, и после проверки публикация станет доступна."
+                                : "Как только проверка завершится, вы сможете публиковать свои статьи."}
                         </p>
 
                         <button className={styles.primaryWideBtn} type="button">

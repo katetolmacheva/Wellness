@@ -59,6 +59,7 @@ class UpdateProfileRequest(BaseModel):
     last_name: Optional[str] = None
     bio: Optional[str] = None
     diploma_info: Optional[str] = None
+    role: Optional[str] = None
 
 
 class UpdateInterestsRequest(BaseModel):

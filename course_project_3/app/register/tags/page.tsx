@@ -1,36 +1,80 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './tags.module.css';
 
-const TAGS = [
-    'Йога',
-    'Спорт',
-    'Правильное питание',
-    'Витамины и БАДы',
-    'Сон',
-    'Стресс',
-    'Ментальное здоровье',
-    'Профилактика',
-];
+type Category = {
+    id: number;
+    name: string;
+    description?: string | null;
+};
 
 export default function TagsPage() {
     const router = useRouter();
-    const [selected, setSelected] = useState<string[]>([]);
+    const [tags, setTags] = useState<Category[]>([]);
+    const [selected, setSelected] = useState<number[]>([]);
 
-    const toggle = (tag: string) => {
+    useEffect(() => {
+        const loadCategories = async () => {
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/categories`);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error('Не удалось загрузить категории');
+                }
+
+                setTags(data);
+            } catch (error) {
+                console.error('Ошибка загрузки категорий', error);
+            }
+        };
+
+        void loadCategories();
+    }, []);
+
+    const toggle = (id: number) => {
         setSelected((prev) =>
-            prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
         );
     };
 
     const canGo = useMemo(() => selected.length > 0, [selected]);
 
-    const onGoArticles = () => {
-        // тут обычно: сохранить интересы на бэке
-        sessionStorage.setItem('tags', JSON.stringify(selected));
-        router.push('/'); // поменяй на ваш роут ленты
+    const onContinue = async () => {
+        if (!selected.length) return;
+
+        try {
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                router.push('/login');
+                return;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/profile/interests`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    categoryIds: selected,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                console.error(data.message || 'Не удалось сохранить теги');
+                return;
+            }
+
+            router.push('/feed');
+        } catch (error) {
+            console.error('Ошибка при сохранении тегов', error);
+        }
     };
 
     return (
@@ -39,23 +83,23 @@ export default function TagsPage() {
                 <h1 className={styles.title}>Выберите, что вас интересует</h1>
 
                 <div className={styles.tagsGrid}>
-                    {Array.from({ length: 15 }).map((_, i) => {
-                        const tag = TAGS[i % TAGS.length];
-                        const active = selected.includes(tag);
+                    {tags.map((tag) => {
+                        const active = selected.includes(tag.id);
+
                         return (
                             <button
-                                key={`${tag}-${i}`}
+                                key={tag.id}
                                 type="button"
                                 className={`${styles.tag} ${active ? styles.tagActive : ''}`}
-                                onClick={() => toggle(tag)}
+                                onClick={() => toggle(tag.id)}
                             >
-                                {tag}
+                                {tag.name}
                             </button>
                         );
                     })}
                 </div>
 
-                <button className={styles.button} onClick={onGoArticles} disabled={!canGo}>
+                <button className={styles.button} onClick={onContinue} disabled={!canGo}>
                     К статьям
                 </button>
             </div>

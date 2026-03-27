@@ -51,14 +51,21 @@ def update_me(
     if payload.last_name is not None:
         user.last_name = payload.last_name.strip()
 
-    if payload.bio is not None:
-        user.bio = payload.bio
+        if payload.bio is not None:
+            user.bio = payload.bio
 
-    if payload.diploma_info is not None:
-        if user.role != "expert":
-            raise HTTPException(status_code=400, detail="Только эксперт может менять diploma_info")
-        user.diploma_info = payload.diploma_info
+        if payload.role is not None:
+            if payload.role not in ["user", "expert"]:
+                raise HTTPException(status_code=400, detail="Некорректная роль")
+            user.role = payload.role
+            user.is_verified = False
 
+        if payload.diploma_info is not None:
+            user.diploma_info = payload.diploma_info
+
+            if payload.diploma_info:
+                user.role = "expert"
+                user.is_verified = False
     db.commit()
     db.refresh(user)
 

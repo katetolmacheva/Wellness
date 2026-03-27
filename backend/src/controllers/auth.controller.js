@@ -76,12 +76,14 @@ function createTransporter() {
     return nodemailer.createTransport({
         host: cfg.smtpHost,
         port: cfg.smtpPort,
-        secure: cfg.smtpSecure,
-        requireTLS: !cfg.smtpSecure,
+        secure: cfg.smtpPort === 465,
         auth: {
             user: cfg.smtpUser,
             pass: cfg.smtpPass,
         },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
     });
 }
 
@@ -90,6 +92,13 @@ async function sendVerificationEmail(email, code) {
     const transporter = createTransporter();
 
     try {
+        console.log("SMTP verify start", {
+            host: cfg.smtpHost,
+            port: cfg.smtpPort,
+            secure: cfg.smtpPort === 587,
+            user: cfg.smtpUser,
+        });
+        console.log("sendMail start", email);
         await transporter.sendMail({
             from: `Wellness <${cfg.smtpFrom}>`,
             to: email,
@@ -115,11 +124,12 @@ async function sendVerificationEmail(email, code) {
         }
         throw error;
     }
+    console.log("SMTP verify ok");
 }
 
 async function register(req, res) {
     try {
-        const { email, password, firstName, lastName, role, diplomaInfo, bio } = req.body;
+        const { email, password, firstName, lastName } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ message: "Email и пароль обязательны" });
@@ -156,9 +166,6 @@ async function register(req, res) {
             });
         }
 
-        if (role === "expert" && !diplomaInfo) {
-            return res.status(400).json({ message: "Для эксперта нужно указать diplomaInfo" });
-        }
 
         const passwordHash = await bcrypt.hash(password, 10);
 
@@ -168,11 +175,11 @@ async function register(req, res) {
                 password: passwordHash,
                 first_name: firstName?.trim() || "",
                 last_name: lastName?.trim() || "",
-                role: role || "user",
+                role: "user",
                 is_verified: false,
                 is_email_verified: false,
-                diploma_info: role === "expert" ? (diplomaInfo || null) : null,
-                bio: role === "expert" ? (bio || null) : null,
+                diploma_info: null,
+                bio: null,
             },
         });
 

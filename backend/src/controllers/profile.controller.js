@@ -46,7 +46,7 @@ async function getMe(req, res) {
 async function updateMe(req, res) {
     try {
         const userId = req.user.userId;
-        const { firstName, lastName, bio, diplomaInfo } = req.body;
+        const { firstName, lastName, bio, diplomaInfo, role } = req.body;
 
         const currentUser = await prisma.user.findUnique({
             where: { id: userId },
@@ -58,15 +58,35 @@ async function updateMe(req, res) {
 
         const data = {};
 
-        if (firstName !== undefined) data.first_name = String(firstName).trim();
-        if (lastName !== undefined) data.last_name = String(lastName).trim();
-        if (bio !== undefined) data.bio = bio ? String(bio).trim() : null;
+        if (firstName !== undefined) {
+            data.first_name = String(firstName).trim();
+        }
+
+        if (lastName !== undefined) {
+            data.last_name = String(lastName).trim();
+        }
+
+        if (role !== undefined) {
+            if (role !== "user" && role !== "expert") {
+                return res.status(400).json({ message: "Некорректная роль" });
+            }
+
+            data.role = role;
+            data.is_verified = false;
+        }
+
+        if (bio !== undefined) {
+            data.bio = bio ? String(bio).trim() : null;
+        }
+
 
         if (diplomaInfo !== undefined) {
-            if (currentUser.role !== "expert") {
-                return res.status(400).json({ message: "Только эксперт может менять diplomaInfo" });
-            }
             data.diploma_info = diplomaInfo ? String(diplomaInfo).trim() : null;
+
+            if (data.diploma_info) {
+                data.role = "expert";
+                data.is_verified = false;
+            }
         }
 
         const user = await prisma.user.update({

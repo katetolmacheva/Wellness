@@ -10,14 +10,38 @@ export default function RolePage() {
     const router = useRouter();
     const [hoverExpert, setHoverExpert] = useState(false);
 
-    const chooseRole = (role: 'user' | 'expert') => {
-        // можно сохранить роль (пока без бэка)
-        sessionStorage.setItem('role', role);
+    const chooseRole = async (role: 'user' | 'expert') => {
+        try {
+            const token = localStorage.getItem('token');
 
-        if (role === 'expert') {
-            router.push('/register/expert');
-        } else {
-            router.push('/register/tags');
+            if (!token) {
+                router.push('/login');
+                return;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/profile/me`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ role }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                console.error(data.message || 'Не удалось сохранить роль');
+                return;
+            }
+
+            if (role === 'expert') {
+                router.push('/register/expert');
+            } else {
+                router.push('/register/tags');
+            }
+        } catch (error) {
+            console.error('Ошибка при сохранении роли', error);
         }
     };
 

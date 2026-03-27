@@ -4,6 +4,8 @@ import { useState } from 'react';
 import styles from './login.module.css';
 import { useRouter } from 'next/navigation';
 
+
+
 export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -13,18 +15,39 @@ export default function LoginPage() {
 
     const router = useRouter();
 
-    function onSubmit(e: React.FormEvent) {
+    async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError(null);
 
-        // мок-проверка (можешь убрать/заменить)
-        if (!email.trim() || !password.trim()) {
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (!normalizedEmail || !password.trim()) {
             setError('Введите e-mail и пароль');
             return;
         }
 
-        // TODO: здесь будет запрос на сервер
-        console.log('login', { email, password });
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: normalizedEmail,
+                    password,
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.message || 'Не удалось войти');
+                return;
+            }
+
+            localStorage.setItem('token', data.token);
+            router.push('/feed');
+        } catch {
+            setError('Не удалось связаться с сервером');
+        }
     }
 
     return (
@@ -38,6 +61,8 @@ export default function LoginPage() {
                             type="email"
                             className={styles.input}
                             placeholder=" "
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
                         />
                         <span className={styles.label}>E-mail</span>
                     </label>
@@ -47,6 +72,8 @@ export default function LoginPage() {
                             type="password"
                             className={styles.input}
                             placeholder=" "
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                         />
                         <span className={styles.label}>Пароль</span>
                     </label>

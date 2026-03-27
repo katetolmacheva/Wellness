@@ -47,7 +47,6 @@ export default function RegisterPage() {
                     password: pass1,
                     firstName: firstName.trim(),
                     lastName: lastName.trim(),
-                    role: 'user',
                 }),
             });
 

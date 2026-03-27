@@ -33,10 +33,40 @@ export default function ExpertVerifyPage() {
         if (inputRef.current) inputRef.current.value = ''; // важно, чтобы можно было выбрать тот же файл снова
     };
 
-    const onNext = () => {
+    const onNext = async () => {
         if (!canGoNext) return;
-        // тут отправка на бэк: education + file
-        router.push('/register/tags');
+
+        try {
+            const token = localStorage.getItem('token');
+
+            if (!token) {
+                router.push('/login');
+                return;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/profile/me`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    role: 'expert',
+                    diplomaInfo: education.trim(),
+                }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                console.error(data.message || 'Не удалось сохранить данные эксперта');
+                return;
+            }
+
+            router.push('/register/tags');
+        } catch (error) {
+            console.error('Ошибка при сохранении экспертности', error);
+        }
     };
 
     return (
