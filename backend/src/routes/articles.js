@@ -7,9 +7,39 @@ const router = express.Router();
  * GET /api/articles
  * Список статей (анонс)
  */
+const authMiddleware = require("../middleware/auth");
+const {
+    getMyArticles,
+    getMyArticleById,
+    saveDraftArticle,
+    updateDraftArticle,
+    publishArticle,
+    deleteMyArticle,
+    uploadArticleCover,
+    uploadArticleCoverFile,
+} = require("../controllers/articles.controller");
+
+
+router.post(
+    "/cover",
+    authMiddleware,
+    uploadArticleCover.single("cover"),
+    uploadArticleCoverFile
+);
+router.get("/my", authMiddleware, getMyArticles);
+router.get("/my/:id", authMiddleware, getMyArticleById);
+router.delete("/my/:id", authMiddleware, deleteMyArticle);
+router.post("/draft", authMiddleware, saveDraftArticle);
+router.patch("/draft/:id", authMiddleware, updateDraftArticle);
+router.post("/publish", authMiddleware, publishArticle);
+
 router.get("/", async (req, res) => {
     try {
         const articles = await prisma.article.findMany({
+            where: {
+                status: "published",
+                published: true,
+            },
             orderBy: { createdAt: "desc" },
             select: {
                 id: true,
@@ -20,7 +50,8 @@ router.get("/", async (req, res) => {
                 annotation: true,
                 imageUrl: true,
                 imageAlt: true,
-                createdAt: true
+                createdAt: true,
+                coauthors: true,
             }
         });
 
@@ -36,8 +67,12 @@ router.get("/", async (req, res) => {
  */
 router.get("/id/:id", async (req, res) => {
     try {
-        const article = await prisma.article.findUnique({
-            where: { id: req.params.id }
+        const article = await prisma.article.findFirst({
+            where: {
+                id: req.params.id,
+                status: "published",
+                published: true,
+            },
         });
 
         if (!article) return res.status(404).json({ error: "Article not found" });
@@ -49,15 +84,14 @@ router.get("/id/:id", async (req, res) => {
     }
 });
 
-/**
- * GET /api/articles/:slug
- */
 router.get("/:slug", async (req, res) => {
     try {
-        const { slug } = req.params;
-
-        const article = await prisma.article.findUnique({
-            where: { slug }
+        const article = await prisma.article.findFirst({
+            where: {
+                slug: req.params.slug,
+                status: "published",
+                published: true,
+            },
         });
 
         if (!article) return res.status(404).json({ error: "Article not found" });
@@ -105,7 +139,7 @@ router.post("/", async (req, res) => {
             authorBio: payload.authorBio || null,
             category: payload.category || "Новости",
             annotation: payload.annotation || "",
-            imageUrl: payload.imageUrl || "/images/articles/placeholder.png",
+            imageUrl: payload.imageUrl || "/images/articles/img_нарушения-сна-у-жителей-мегаполиса_65237053.png",
             imageAlt: payload.imageAlt || title,
             content: Array.isArray(payload.content) ? payload.content : [],
             sources: Array.isArray(payload.sources) ? payload.sources : [],
@@ -120,5 +154,6 @@ router.post("/", async (req, res) => {
         res.status(500).json({ error: "Failed to create article" });
     }
 });
+
 
 module.exports = router;

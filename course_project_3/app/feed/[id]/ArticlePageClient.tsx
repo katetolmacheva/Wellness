@@ -30,8 +30,9 @@ type Article = {
     imageUrl?: string;
     imageAlt?: string;
     createdAt?: string;
-    content?: ArticleBlock[];
+    content?: ArticleBlock[] | string;
     sources?: ArticleSource[];
+    coauthors?: string;
 };
 
 function BookmarkIcon({ filled }: { filled: boolean }) {
@@ -120,6 +121,15 @@ function renderSource(source: ArticleSource, key: number) {
             {title}
             {type}
         </li>
+    );
+}
+
+function renderHtmlContent(html: string) {
+    return (
+        <div
+            className={styles.htmlContent}
+            dangerouslySetInnerHTML={{ __html: html }}
+        />
     );
 }
 
@@ -223,6 +233,11 @@ export default function ArticlePageClient({
                         <span className={styles.dot} aria-hidden />
                         <span className={styles.date}>{date}</span>
                     </div>
+                    {article.coauthors ? (
+                        <div className={styles.coauthorsLine}>
+                            Соавторы: {article.coauthors}
+                        </div>
+                    ) : null}
 
                     <h1 className={styles.bigTitle}>{article.title}</h1>
 
@@ -260,6 +275,8 @@ export default function ArticlePageClient({
                     <div className={styles.content}>
                         {Array.isArray(article.content) && article.content.length > 0 ? (
                             article.content.map((b, i) => renderBlock(b, i))
+                        ) : typeof article.content === "string" && article.content.trim() ? (
+                            renderHtmlContent(article.content)
                         ) : (
                             <p className={styles.p}>Нет контента</p>
                         )}

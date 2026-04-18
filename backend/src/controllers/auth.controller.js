@@ -328,7 +328,7 @@ async function verifyEmail(req, res) {
             data: { used: true },
         });
 
-        await prisma.user.update({
+        const updatedUser = await prisma.user.update({
             where: { id: user.id },
             data: {
                 is_email_verified: true,
@@ -336,7 +336,30 @@ async function verifyEmail(req, res) {
             },
         });
 
-        return res.json({ message: "Почта подтверждена" });
+        const token = jwt.sign(
+            {
+                userId: updatedUser.id,
+                email: updatedUser.email,
+                role: updatedUser.role,
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "7d" }
+        );
+
+        return res.json({
+            message: "Почта подтверждена",
+            token,
+            user: {
+                id: updatedUser.id,
+                email: updatedUser.email,
+                first_name: updatedUser.first_name,
+                last_name: updatedUser.last_name,
+                role: updatedUser.role,
+                is_verified: updatedUser.is_verified,
+                is_email_verified: updatedUser.is_email_verified,
+                avatarUrl: updatedUser.avatarUrl || null,
+            },
+        });
     } catch (error) {
         console.error("verifyEmail error:", error);
         return res.status(500).json({
