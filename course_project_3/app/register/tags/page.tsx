@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import styles from "./tags.module.css";
 
@@ -31,7 +31,7 @@ async function readJsonSafe(res: Response): Promise<unknown> {
     }
 }
 
-export default function TagsPage() {
+function TagsPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -221,5 +221,22 @@ export default function TagsPage() {
                 </button>
             </div>
         </div>
+    );
+}
+
+export default function TagsPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className={styles.container}>
+                    <div className={styles.content}>
+                        <h1 className={styles.title}>Выберите, что вас интересует</h1>
+                        <div>Загрузка...</div>
+                    </div>
+                </div>
+            }
+        >
+            <TagsPageContent />
+        </Suspense>
     );
 }

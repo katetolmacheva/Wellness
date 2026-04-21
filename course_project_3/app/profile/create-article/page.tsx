@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
     ChangeEvent,
     KeyboardEvent,
+    Suspense,
     useEffect,
     useMemo,
     useRef,
@@ -66,7 +67,7 @@ async function readJsonSafe<T>(res: Response): Promise<T> {
     }
 }
 
-export default function CreateArticlePage() {
+function CreateArticlePageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -619,5 +620,13 @@ export default function CreateArticlePage() {
                 </section>
             </main>
         </div>
+    );
+}
+
+export default function CreateArticlePage() {
+    return (
+        <Suspense fallback={<div className={styles.page}>Загрузка...</div>}>
+            <CreateArticlePageContent />
+        </Suspense>
     );
 }

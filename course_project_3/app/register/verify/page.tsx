@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -12,7 +12,7 @@ function onlyDigits(value: string) {
     return value.replace(/\D/g, "").slice(0, CODE_LENGTH);
 }
 
-export default function VerifyCodePage() {
+function VerifyCodePageContent() {
     const router = useRouter();
     const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(""));
     const [isLoading, setIsLoading] = useState(false);
@@ -251,5 +251,22 @@ export default function VerifyCodePage() {
                 </Link>
             </div>
         </div>
+    );
+}
+
+export default function VerifyCodePage() {
+    return (
+        <Suspense
+            fallback={
+                <div className={styles.page}>
+                    <div className={styles.card}>
+                        <p className={styles.kicker}>ПОДТВЕРЖДЕНИЕ ПРОФИЛЯ</p>
+                        <h1 className={styles.title}>Загрузка...</h1>
+                    </div>
+                </div>
+            }
+        >
+            <VerifyCodePageContent />
+        </Suspense>
     );
 }
