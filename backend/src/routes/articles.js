@@ -1,4 +1,4 @@
-const express = require("express");
+﻿const express = require("express");
 const prisma = require("../prisma");
 const authMiddleware = require("../middleware/auth");
 
@@ -78,7 +78,6 @@ async function moderateArticleOrThrow(payload) {
  * GET /api/articles
  * Список статей (анонс)
  */
-const authMiddleware = require("../middleware/auth");
 const {
     getMyArticles,
     getMyArticleById,
@@ -113,14 +112,7 @@ router.post("/saved/toggle", authMiddleware, toggleSavedArticle);
 router.get("/", async (req, res) => {
     try {
         const articles = await prisma.article.findMany({
-<<<<<<< HEAD
             where: { published: true },
-=======
-            where: {
-                status: "published",
-                published: true,
-            },
->>>>>>> 98a894d3033e5451ec28d50c36e42c8cfc0f7ec5
             orderBy: { createdAt: "desc" },
             select: {
                 id: true,
@@ -148,17 +140,8 @@ router.get("/", async (req, res) => {
  */
 router.get("/id/:id", async (req, res) => {
     try {
-<<<<<<< HEAD
         const article = await prisma.article.findUnique({
             where: { id: req.params.id },
-=======
-        const article = await prisma.article.findFirst({
-            where: {
-                id: req.params.id,
-                status: "published",
-                published: true,
-            },
->>>>>>> 98a894d3033e5451ec28d50c36e42c8cfc0f7ec5
         });
 
         if (!article || !article.published) return res.status(404).json({ error: "Article not found" });
@@ -172,11 +155,9 @@ router.get("/id/:id", async (req, res) => {
 
 router.get("/:slug", async (req, res) => {
     try {
-        const article = await prisma.article.findFirst({
+        const article = await prisma.article.findUnique({
             where: {
                 slug: req.params.slug,
-                status: "published",
-                published: true,
             },
         });
 
