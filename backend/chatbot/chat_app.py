@@ -37,6 +37,9 @@ app.add_middleware(
 # --------- CLIENTS ---------
 
 GROQ_API_KEY = (os.environ.get("GROQ_API_KEY") or "").strip()
+GROQ_CHAT_MODEL = (os.environ.get("GROQ_CHAT_MODEL") or "groq/compound").strip()
+GROQ_TITLE_MODEL = (os.environ.get("GROQ_TITLE_MODEL") or GROQ_CHAT_MODEL).strip()
+GROQ_MODERATION_MODEL = (os.environ.get("GROQ_MODERATION_MODEL") or GROQ_CHAT_MODEL).strip()
 
 # Клиенты инициализируем только если ключ задан, чтобы сервис мог стартовать
 # (в dev/preview окружениях ключ может быть не задан).
@@ -159,11 +162,12 @@ def ask_groq_structured(history: List[ChatMessage]) -> dict:
 
     try:
         resp = client.chat.completions.create(
-            model="groq/compound",
+            model=GROQ_CHAT_MODEL,
             messages=messages,
         )
     except Exception as e:
         # Groq SDK кидает исключения при 4xx/5xx. Даем читабельную причину в ответ.
+        print("Groq chat error:", repr(e))
         raise HTTPException(status_code=502, detail=f"Ошибка Groq API: {str(e)}")
 
     msg = resp.choices[0].message
@@ -201,7 +205,7 @@ def generate_title(body: TitleIn):
 
     try:
         resp = client.chat.completions.create(
-            model="groq/compound",
+            model=GROQ_TITLE_MODEL,
             messages=[
                 {"role": "system", "content": title_system},
                 {"role": "user", "content": body.text},
@@ -209,6 +213,7 @@ def generate_title(body: TitleIn):
             temperature=0.2,
         )
     except Exception as e:
+        print("Groq title error:", repr(e))
         raise HTTPException(status_code=502, detail=f"Ошибка Groq API: {str(e)}")
 
     title = (resp.choices[0].message.content or "").strip()
@@ -285,6 +290,8 @@ def harden_article_decision(data: ArticleModerationResult) -> ArticleModerationR
 
 @app.post("/article/moderate")
 def moderate_article(body: ArticleModerationIn):
+    if not client:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY не задан")
     user_text = (
         f"{ARTICLE_MODERATION_PROMPT}\n\n"
         f"НАЗВАНИЕ:\n{body.title.strip()}\n\n"
@@ -293,11 +300,15 @@ def moderate_article(body: ArticleModerationIn):
         f"ТЕКСТ СТАТЬИ:\n{body.content_text.strip()[:20000]}"
     )
 
-    resp = client.chat.completions.create(
-        model="groq/compound",
-        messages=[{"role": "user", "content": user_text}],
-        temperature=0.1,
-    )
+    try:
+        resp = client.chat.completions.create(
+            model=GROQ_MODERATION_MODEL,
+            messages=[{"role": "user", "content": user_text}],
+            temperature=0.1,
+        )
+    except Exception as e:
+        print("Groq moderation error:", repr(e))
+        raise HTTPException(status_code=502, detail=f"Ошибка Groq API: {str(e)}")
 
     raw_text = (resp.choices[0].message.content or "").strip()
     json_text = clean_json_text(raw_text)
