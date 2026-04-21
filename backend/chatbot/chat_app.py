@@ -207,6 +207,101 @@ def generate_title(body: TitleIn):
     return {"title": title}
 
 
+# ---------- МОДЕРАЦИЯ СТАТЕЙ ----------
+
+ArticleModerationDecision = Literal["approved", "rejected"]
+
+
+class ArticleModerationIn(BaseModel):
+    title: str = Field(min_length=3)
+    category: str = Field(min_length=2)
+    annotation: str = Field(min_length=10)
+    content_text: str = Field(min_length=50)
+
+
+class ArticleModerationResult(BaseModel):
+    decision: ArticleModerationDecision
+    confidence_score: int
+    reasons: List[str] = []
+    red_flags: List[str] = []
+    health_topic_match: bool
+    topic_relevance: bool
+    is_safe_content: bool
+
+
+ARTICLE_MODERATION_PROMPT = """
+Ты — строгая система премодерации статей для wellness-платформы.
+
+Твоя задача: решить, можно ли публиковать статью.
+
+ПРАВИЛА МОДЕРАЦИИ:
+1) Статья должна быть по теме здоровья / wellness / ЗОЖ.
+2) Статья должна соответствовать заявленной категории и теме.
+3) Контент должен быть безопасным: без провокаций, оскорблений, разжигания ненависти,
+   призывов к насилию, саморазрушению, опасным практикам и другим вредным материалам.
+4) Не допускать псевдонаучные, заведомо вредные или опасные рекомендации.
+5) Если есть сомнения — отклоняй (decision = "rejected").
+
+ВЕРНИ СТРОГО JSON и ничего больше.
+Формат:
+{
+  "decision": "approved | rejected",
+  "confidence_score": 0,
+  "reasons": ["..."],
+  "red_flags": ["..."],
+  "health_topic_match": true,
+  "topic_relevance": true,
+  "is_safe_content": true
+}
+""".strip()
+
+
+def harden_article_decision(data: ArticleModerationResult) -> ArticleModerationResult:
+    is_confident = data.confidence_score >= 80
+    is_clean = len(data.red_flags) == 0
+    must_approve = (
+        data.health_topic_match
+        and data.topic_relevance
+        and data.is_safe_content
+        and is_confident
+        and is_clean
+    )
+    data.decision = "approved" if must_approve else "rejected"
+    return data
+
+
+@app.post("/article/moderate")
+def moderate_article(body: ArticleModerationIn):
+    user_text = (
+        f"{ARTICLE_MODERATION_PROMPT}\n\n"
+        f"НАЗВАНИЕ:\n{body.title.strip()}\n\n"
+        f"КАТЕГОРИЯ:\n{body.category.strip()}\n\n"
+        f"АННОТАЦИЯ:\n{body.annotation.strip()}\n\n"
+        f"ТЕКСТ СТАТЬИ:\n{body.content_text.strip()[:20000]}"
+    )
+
+    resp = client.chat.completions.create(
+        model="groq/compound",
+        messages=[{"role": "user", "content": user_text}],
+        temperature=0.1,
+    )
+
+    raw_text = (resp.choices[0].message.content or "").strip()
+    json_text = clean_json_text(raw_text)
+
+    try:
+        parsed = json.loads(json_text)
+        result = ArticleModerationResult(**parsed)
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Модель вернула невалидный ответ модерации: {str(e)}",
+        )
+
+    hardened = harden_article_decision(result)
+    return hardened.model_dump()
+
+
 # ---------- ВЕРИФИКАЦИЯ ЭКСПЕРТА ----------
 
 UPLOAD_DIR = "uploads/expert_docs"

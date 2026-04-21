@@ -78,6 +78,10 @@ model Article {
   sources      Json
   createdAt    DateTime @default(now())
   published    Boolean  @default(true)
+  moderationStatus String @default("pending")
+  moderationReason String?
+  moderationScore  Int?
+  moderatedAt      DateTime?
 
   // поля для RSS
   externalUrl  String?  @unique

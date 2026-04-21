@@ -1112,6 +1112,106 @@
     cursor: not-allowed;
 }
 
+.createForm {
+    width: 100%;
+    display: grid;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.createInput,
+.createTextarea,
+.createTextareaLarge {
+    width: 100%;
+    border: 1px solid #cfd3db;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 12px 14px;
+    font-size: 15px;
+    color: #333;
+    outline: none;
+}
+
+.createTextarea {
+    min-height: 90px;
+    resize: vertical;
+}
+
+.createTextareaLarge {
+    min-height: 170px;
+    resize: vertical;
+}
+
+.moderationBox {
+    width: 100%;
+    background: #f8eaea;
+    border: 1px solid #e0b3b3;
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin: 6px 0 16px;
+}
+
+.moderationStatusRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.moderationBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.moderationBadgeApproved {
+    background: #dff0e4;
+    color: #2f7a47;
+    border: 1px solid #b7dec3;
+}
+
+.moderationBadgeRejected {
+    background: #f9e0e0;
+    color: #8a2f2f;
+    border: 1px solid #e4b4b4;
+}
+
+.moderationTitle {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6f2f2f;
+}
+
+.moderationHint {
+    font-size: 14px;
+    color: #4b5e52;
+}
+
+.moderationSection {
+    margin-top: 10px;
+}
+
+.moderationSectionTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #6f2f2f;
+    margin-bottom: 6px;
+}
+
+.moderationList,
+.moderationFlags {
+    display: grid;
+    gap: 4px;
+    font-size: 14px;
+    color: #6f2f2f;
+}
+
 .uploadStub {
     cursor: pointer;
     transition: all 0.2s ease;

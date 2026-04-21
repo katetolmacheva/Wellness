@@ -12,3 +12,29 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data);
 }
+
+export async function POST(req: Request) {
+    const base = process.env.BACKEND_URL || process.env.ARTICLES_API_URL || "http://localhost:3001";
+    const authHeader = req.headers.get("authorization");
+    const body = await req.text();
+
+    const res = await fetch(`${base}/api/articles`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(authHeader ? { Authorization: authHeader } : {}),
+        },
+        body,
+    });
+
+    const raw = await res.text();
+    let data: unknown = {};
+
+    try {
+        data = raw ? JSON.parse(raw) : {};
+    } catch {
+        data = { error: raw || "Unexpected server response" };
+    }
+
+    return NextResponse.json(data, { status: res.status });
+}

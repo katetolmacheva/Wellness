@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import styles from "./profile.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Role = "user" | "expert";
 
@@ -44,6 +44,13 @@ type ProfileData = {
     bio: string | null;
     avatarUrl?: string | null;
     interests: Interest[];
+};
+
+type ModerationData = {
+    status: string;
+    reasons: string[];
+    red_flags: string[];
+    confidence_score: number | null;
 };
 
 function toMediaUrl(url?: string | null) {
@@ -153,6 +160,16 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [savedArticles, setSavedArticles] = useState<ProfileArticle[]>([]);
     const [savedLoading, setSavedLoading] = useState(false);
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [publishLoading, setPublishLoading] = useState(false);
+    const [publishError, setPublishError] = useState<string | null>(null);
+    const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
+    const [moderationData, setModerationData] = useState<ModerationData | null>(null);
+    const [newTitle, setNewTitle] = useState("");
+    const [newCategory, setNewCategory] = useState("");
+    const [newAnnotation, setNewAnnotation] = useState("");
+    const [newContent, setNewContent] = useState("");
+    const moderationRef = useRef<HTMLDivElement | null>(null);
 
     const [tab, setTab] = useState<"saved" | "created">("saved");
     const [search, setSearch] = useState("");
@@ -327,6 +344,102 @@ export default function ProfilePage() {
         if (canPublish) return "МОИ СТАТЬИ";
         return "";
     }, [tab, canPublish]);
+
+    useEffect(() => {
+        if (!moderationData) return;
+        moderationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, [moderationData]);
+
+    const closeCreateModal = () => {
+        setCreateModalOpen(false);
+        setPublishLoading(false);
+        setPublishError(null);
+        setPublishSuccess(null);
+        setModerationData(null);
+        setNewTitle("");
+        setNewCategory("");
+        setNewAnnotation("");
+        setNewContent("");
+    };
+
+    const handleCreateArticle = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const title = newTitle.trim();
+        const category = newCategory.trim();
+        const annotation = newAnnotation.trim();
+        const content = newContent.trim();
+
+        if (!title || !category || !annotation || content.length < 50) {
+            setPublishError("Заполните все поля. Текст статьи должен быть не короче 50 символов.");
+            return;
+        }
+
+        try {
+            setPublishLoading(true);
+            setPublishError(null);
+            setPublishSuccess(null);
+            setModerationData(null);
+
+            const res = await fetch("/api/articles", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    title,
+                    category,
+                    annotation,
+                    content: [{ type: "paragraph", text: content }],
+                    sources: [],
+                }),
+            });
+
+            const data = (await readJsonSafe(res)) as Record<string, unknown>;
+
+            if (!res.ok) {
+                const message =
+                    typeof data.error === "string" ? data.error : "Не удалось опубликовать статью";
+
+                const moderationRaw =
+                    data.moderation && typeof data.moderation === "object"
+                        ? (data.moderation as Record<string, unknown>)
+                        : null;
+
+                if (res.status === 422 && moderationRaw) {
+                    const reasons = Array.isArray(moderationRaw.reasons)
+                        ? moderationRaw.reasons.filter((v): v is string => typeof v === "string")
+                        : [];
+                    const redFlags = Array.isArray(moderationRaw.red_flags)
+                        ? moderationRaw.red_flags.filter((v): v is string => typeof v === "string")
+                        : [];
+
+                    setModerationData({
+                        status: typeof moderationRaw.status === "string" ? moderationRaw.status : "rejected",
+                        reasons,
+                        red_flags: redFlags,
+                        confidence_score:
+                            typeof moderationRaw.confidence_score === "number"
+                                ? moderationRaw.confidence_score
+                                : null,
+                    });
+                    setPublishError("Статья не прошла модерацию. Исправьте текст и попробуйте снова.");
+                    return;
+                }
+
+                setPublishError(message);
+                return;
+            }
+
+            setPublishSuccess("Статья прошла модерацию и опубликована.");
+        } catch {
+            setPublishError("Ошибка сети при публикации статьи.");
+        } finally {
+            setPublishLoading(false);
+        }
+    };
 
     if (!profile) {
         return <div className={styles.loader}>Загрузка профиля...</div>;
@@ -519,7 +632,7 @@ export default function ProfilePage() {
                                     <div className={styles.noResults}>Ничего не найдено</div>
                                 )}
 
-                                <button className={styles.addArticleCard}>
+                                <button className={styles.addArticleCard} onClick={() => setCreateModalOpen(true)}>
                                     <PlusIcon />
                                 </button>
                             </div>
@@ -552,6 +665,108 @@ export default function ProfilePage() {
 
                 )}
             </main>
+
+            {createModalOpen && (
+                <div className={styles.modalOverlay} onClick={closeCreateModal}>
+                    <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                        <h3 className={styles.modalTitle}>Новая статья</h3>
+                        <p className={styles.modalText}>
+                            Перед публикацией статья проходит автоматическую модерацию.
+                        </p>
+
+                        <div className={styles.createForm}>
+                            <input
+                                className={styles.createInput}
+                                placeholder="Название"
+                                value={newTitle}
+                                onChange={(e) => setNewTitle(e.target.value)}
+                            />
+                            <input
+                                className={styles.createInput}
+                                placeholder="Категория"
+                                value={newCategory}
+                                onChange={(e) => setNewCategory(e.target.value)}
+                            />
+                            <textarea
+                                className={styles.createTextarea}
+                                placeholder="Краткая аннотация"
+                                value={newAnnotation}
+                                onChange={(e) => setNewAnnotation(e.target.value)}
+                            />
+                            <textarea
+                                className={styles.createTextareaLarge}
+                                placeholder="Текст статьи"
+                                value={newContent}
+                                onChange={(e) => setNewContent(e.target.value)}
+                            />
+                        </div>
+
+                        {publishError && <div className={styles.errorText}>{publishError}</div>}
+                        {publishSuccess && <div className={styles.successText}>{publishSuccess}</div>}
+
+                        {publishSuccess && (
+                            <div className={styles.moderationStatusRow}>
+                                <span className={`${styles.moderationBadge} ${styles.moderationBadgeApproved}`}>
+                                    Прошла
+                                </span>
+                                <span className={styles.moderationHint}>
+                                    Модерация успешно пройдена, статья опубликована.
+                                </span>
+                            </div>
+                        )}
+
+                        {moderationData && (
+                            <div className={styles.moderationBox} ref={moderationRef}>
+                                <div className={styles.moderationStatusRow}>
+                                    <span className={`${styles.moderationBadge} ${styles.moderationBadgeRejected}`}>
+                                        Не прошла
+                                    </span>
+                                    <span className={styles.moderationTitle}>
+                                        Результат модерации: {moderationData.status}
+                                    {typeof moderationData.confidence_score === "number"
+                                        ? ` · ${moderationData.confidence_score}%`
+                                        : ""}
+                                    </span>
+                                </div>
+                                {moderationData.reasons.length > 0 && (
+                                    <div className={styles.moderationSection}>
+                                        <div className={styles.moderationSectionTitle}>Что исправить</div>
+                                        <div className={styles.moderationList}>
+                                            {moderationData.reasons.map((item) => (
+                                                <div key={item}>• {item}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {moderationData.red_flags.length > 0 && (
+                                    <div className={styles.moderationSection}>
+                                        <div className={styles.moderationSectionTitle}>Опасные фрагменты</div>
+                                        <div className={styles.moderationFlags}>
+                                            {moderationData.red_flags.map((item) => (
+                                                <div key={item}>⚠ {item}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className={styles.modalRowActions}>
+                            <button type="button" className={styles.modalHalfButton} onClick={closeCreateModal}>
+                                Закрыть
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.modalHalfButton}
+                                onClick={handleCreateArticle}
+                                disabled={publishLoading}
+                            >
+                                {publishLoading ? "Публикация..." : "Опубликовать"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
