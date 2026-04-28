@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+﻿# Wellness / Health Article Platform
 
-## Getting Started
+### Это платформа для публикации и модерации статей о здоровье:
+- Next.js фронтенда;
+- Node.js/Express бэкенда с Prisma и PostgreSQL;
+- Python-скриптов для импорта RSS и обработки картинок;
+- FastAPI чат‑сервиса (с интеграцией GROQ/OpenAI) для модерации и верификации экспертов.
 
-First, run the development server:
+### Ключевые сценарии
+- Публикация статей: только верифицированные эксперты. Перед публикацией статья проходит автоматическую модерацию.
+- RSS‑импорт: backend/scripts/rss_importer.py парсит ленты новостей, формирует контент, скачивает изображения и сохраняет в БД.
+- Верификация экспертов: backend/chatbot/chat_app.py принимает файл диплома, рендерит страницы (PyMuPDF) и отправляет на LLM для проверки.
+- Чат-ассистент: FastAPI + GROQ для диалогов, генерации коротких заголовков и модерации статей.
+- Скрипты поддержки.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+### Стек
+- Frontend: Next.js (React)
+- Backend: Node.js, Express, Prisma (Postgres)
+- RSS/import: Python (feedparser, BeautifulSoup, requests)
+- Чат/модерация: FastAPI, Groq/OpenAI, PyMuPDF
+- База данных: PostgreSQL
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Главные файлы и папки
+- frontend: Next.js (course_project_3)
+- backend/src — Express контроллеры и роуты (articles, profile и т.д.)
+- backend/scripts — rss_importer.py, rss_utils.py, утилиты по картинкам
+- backend/chatbot — FastAPI / логика модерации и верификации
+- backend/prisma — schema.prisma, seed.js
+- public/uploads, public/images — хранение загруженных обложек и картинок статей
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Переменные окружения
+Общие: 
+- PORT
+- HOST
+- DATABASE_URL
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Флаги запуска и отладки:
+- SEED_DB_ON_START=false   # true|false — запуск seed при старте (dev only)
+- DEBUG_AUTH_NO_EMAIL=false # true|false — пропуск валидации email в dev
 
-## Learn More
+Адрес сервиса модерации/чатбота (FastAPI)
+- CHATBOT_URL
 
-To learn more about Next.js, take a look at the following resources:
+GROQ ключ
+- GROQ_API_KEY
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Brevo (провайдер email)
+- BREVO_API_KEY
+- SMTP_HOST
+- SMTP_PORT
+- SMTP_SECURE
+- SMTP_USER
+- SMTP_PASS
+- SMTP_FROM
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Быстрый запуск локально
+- Frontend:
+  - В корне фронтенда: npm install && npm run dev
+  - http://localhost:3000
 
-## Deploy on Vercel
+- Backend (через Docker):
+  1. В корне проекта backend подготовить файл .env
+  2. Запуск через docker:
+     - cd backend
+     - docker compose up
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Chatbot:
+  - cd backend/chatbot && pip install -r requirements.txt && uvicorn chat_app:app --host 0.0.0.0 --port 8000
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+Примечание о продакшене
+- Backend и chatbot на Reilway 
+- Frontend на Vercel
