@@ -4,7 +4,6 @@
     color: #111;
 }
 
-/* Topbar */
 .topbar {
     display: flex;
     align-items: center;
@@ -29,7 +28,6 @@
 
 .tabActive {
     color: #111;
-    /* ✅ надежный “хайлайтер” */
     background-image: linear-gradient(#efe2a0, #efe2a0);
     background-repeat: no-repeat;
     background-size: calc(100% + 6px) 1em;
@@ -45,7 +43,6 @@
     display: inline-block;
 }
 
-/* Layout */
 .main {
     display: grid;
     grid-template-columns: 260px 1fr;
@@ -53,12 +50,10 @@
     padding: 18px 28px 40px;
 }
 
-/* Sidebar */
 .sidebar {
     padding-top: 14px;
 }
 
-/* Search */
 .searchRow {
     position: relative;
     width: 100%;
@@ -87,7 +82,6 @@
     font-size: 14px;
 }
 
-/* Tags */
 .tags {
     display: flex;
     flex-wrap: wrap;
@@ -111,7 +105,6 @@
     color: #fff;
 }
 
-/* Expand */
 .expandBtn {
     border: none;
     background: transparent;
@@ -146,7 +139,6 @@
     color: #8f949d;
 }
 
-/* Grid / Cards */
 .grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -198,7 +190,6 @@
     color: #333;
 }
 
-/* ✅ выбранные теги подсвечиваем на карточке */
 .cardTagActive {
     background: #2a2a2a;
     color: #fff;
@@ -235,7 +226,6 @@
 }
 
 
-/* Responsive */
 @media (max-width: 1100px) {
     .grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));

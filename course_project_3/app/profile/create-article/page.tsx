@@ -319,7 +319,6 @@ function CreateArticlePageContent() {
                 .split("\n")
                 .map((item) => item.trim())
                 .filter(Boolean),
-            // В payload отправляем только URL с сервера (не blob: preview)
             imageUrl: coverRemoteUrl || "",
             imageAlt: safeTitle,
             category: selectedTags[0] || "статья",

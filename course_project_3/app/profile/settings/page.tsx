@@ -4,6 +4,7 @@ import Link from "next/link";
 import styles from "../profile.module.css";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PencilLine } from "lucide-react";
 
 type Role = "user" | "expert";
 
@@ -38,27 +39,6 @@ function ArrowLeftIcon() {
     );
 }
 
-function PencilLineIcon() {
-    return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-                d="M15 5L19 9"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-            <path
-                d="M5 19L9.5 18L18 9.5L14.5 6L6 14.5L5 19Z"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    );
-}
-
 function PlusIcon() {
     return <span className={styles.plusIcon}>+</span>;
 }
@@ -82,8 +62,18 @@ function normalizeProfile(data: unknown): ProfileData | null {
     return {
         id: Number(raw.id ?? 0),
         email: typeof raw.email === "string" ? raw.email : "",
-        first_name: typeof raw.first_name === "string" ? raw.first_name : typeof raw.firstName === "string" ? raw.firstName : "",
-        last_name: typeof raw.last_name === "string" ? raw.last_name : typeof raw.lastName === "string" ? raw.lastName : "",
+        first_name:
+            typeof raw.first_name === "string"
+                ? raw.first_name
+                : typeof raw.firstName === "string"
+                    ? raw.firstName
+                    : "",
+        last_name:
+            typeof raw.last_name === "string"
+                ? raw.last_name
+                : typeof raw.lastName === "string"
+                    ? raw.lastName
+                    : "",
         role: raw.role === "expert" ? "expert" : "user",
         is_verified:
             typeof raw.is_verified === "boolean"
@@ -111,7 +101,13 @@ function normalizeProfile(data: unknown): ProfileData | null {
                     ? raw.avatar_url
                     : null,
         interests: Array.isArray(raw.interests)
-            ? (raw.interests as unknown[]).filter((item): item is Interest => !!item && typeof item === "object" && typeof (item as Interest).id === "number" && typeof (item as Interest).name === "string")
+            ? (raw.interests as unknown[]).filter(
+                (item): item is Interest =>
+                    !!item &&
+                    typeof item === "object" &&
+                    typeof (item as Interest).id === "number" &&
+                    typeof (item as Interest).name === "string"
+            )
             : [],
         documents,
     };
@@ -130,8 +126,10 @@ async function readJsonSafe(res: Response) {
 
 export default function ProfileSettingsPage() {
     const router = useRouter();
+
     const avatarInputRef = useRef<HTMLInputElement | null>(null);
     const documentInputRef = useRef<HTMLInputElement | null>(null);
+    const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [firstName, setFirstName] = useState("");
@@ -145,9 +143,10 @@ export default function ProfileSettingsPage() {
     const [logoutOpen, setLogoutOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [confirmPasswordOpen, setConfirmPasswordOpen] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+
+    const [verifyError, setVerifyError] = useState("");
+    const [profileError, setProfileError] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
-    const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         return () => {
@@ -156,7 +155,6 @@ export default function ProfileSettingsPage() {
             }
         };
     }, []);
-
 
     useEffect(() => {
         const loadProfile = async () => {
@@ -168,7 +166,8 @@ export default function ProfileSettingsPage() {
             }
 
             try {
-                setError(null);
+                setProfileError("");
+                setVerifyError("");
 
                 const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/profile/me`, {
                     headers: {
@@ -187,20 +186,23 @@ export default function ProfileSettingsPage() {
 
                 if (!res.ok) {
                     throw new Error(
-                        typeof data.message === "string" ? data.message : "Не удалось загрузить настройки"
+                        typeof data.message === "string"
+                            ? data.message
+                            : "Не удалось загрузить настройки"
                     );
                 }
 
-
                 const typed = normalizeProfile(data);
                 if (!typed) throw new Error("Не удалось прочитать профиль");
+
                 setProfile(typed);
                 setFirstName(typed.first_name || "");
                 setLastName(typed.last_name || "");
                 setEmail(typed.email || "");
                 setAvatarPreview(toMediaUrl(typed.avatarUrl) || null);
+                setDocumentName("");
             } catch (err) {
-                setError(err instanceof Error ? err.message : "Ошибка загрузки настроек");
+                setProfileError(err instanceof Error ? err.message : "Ошибка загрузки настроек");
             } finally {
                 setLoading(false);
             }
@@ -208,6 +210,12 @@ export default function ProfileSettingsPage() {
 
         void loadProfile();
     }, [router]);
+
+    useEffect(() => {
+        if (!loading && !profile) {
+            router.push("/login");
+        }
+    }, [loading, profile, router]);
 
     const handleAvatarClick = () => {
         avatarInputRef.current?.click();
@@ -226,11 +234,13 @@ export default function ProfileSettingsPage() {
         }
 
         try {
-            setError(null);
+            setVerifyError("");
             setSuccessMessage("Проверяем диплом...");
 
             const formData = new FormData();
             formData.append("education_description", profile?.diploma_info || "Медицинское образование");
+            formData.append("first_name", profile?.first_name || "");
+            formData.append("last_name", profile?.last_name || "");
             formData.append("file", file);
 
             const aiRes = await fetch("/api/expert-verify", {
@@ -238,27 +248,28 @@ export default function ProfileSettingsPage() {
                 body: formData,
             });
 
-            const aiText = await aiRes.text();
-
-            let aiData;
-            try {
-                aiData = aiText ? JSON.parse(aiText) : {};
-            } catch {
-                throw new Error("AI вернул не JSON");
-            }
+            const aiData = await readJsonSafe(aiRes);
 
             if (!aiRes.ok) {
-                throw new Error(aiData.detail || aiData.message || "Ошибка проверки диплома");
+                const detail =
+                    typeof aiData.detail === "string"
+                        ? aiData.detail
+                        : typeof aiData.message === "string"
+                            ? aiData.message
+                            : "Ошибка проверки диплома";
+                throw new Error(detail);
             }
 
-            // ❌ ЕСЛИ НЕ ПРОШЁЛ
             if (!aiData.verified) {
-                setError(aiData.message || "Диплом не прошёл проверку");
+                setVerifyError(
+                    typeof aiData.message === "string"
+                        ? aiData.message
+                        : "Диплом не прошёл проверку"
+                );
                 setSuccessMessage("");
                 return;
             }
 
-            // ✅ ЕСЛИ ПРОШЁЛ → сохраняем в backend
             const saveRes = await fetch(
                 `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/profile/apply-expert-verification`,
                 {
@@ -277,26 +288,25 @@ export default function ProfileSettingsPage() {
                 }
             );
 
-            const saveText = await saveRes.text();
-            let saveData;
-
-            try {
-                saveData = saveText ? JSON.parse(saveText) : {};
-            } catch {
-                throw new Error("Backend вернул не JSON");
-            }
+            const saveData = await readJsonSafe(saveRes);
 
             if (!saveRes.ok) {
-                throw new Error(saveData.message || "Ошибка сохранения результата");
+                throw new Error(
+                    typeof saveData.message === "string"
+                        ? saveData.message
+                        : "Ошибка сохранения результата"
+                );
             }
 
-            // 🔥 ОБНОВЛЯЕМ ПРОФИЛЬ
-            setProfile(saveData.profile);
+            const typed = normalizeProfile(saveData.profile);
+            if (typed) {
+                setProfile(typed);
+            }
 
+            setVerifyError("");
             setSuccessMessage("Диплом подтверждён! Теперь вы эксперт 🎉");
-
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Ошибка");
+            setVerifyError(err instanceof Error ? err.message : "Ошибка");
             setSuccessMessage("");
         }
     };
@@ -316,7 +326,7 @@ export default function ProfileSettingsPage() {
         setAvatarPreview(localPreview);
 
         try {
-            setError(null);
+            setProfileError("");
 
             const formData = new FormData();
             formData.append("avatar", file);
@@ -357,13 +367,14 @@ export default function ProfileSettingsPage() {
             );
 
             setAvatarPreview(nextAvatar);
+
             if (nextAvatar !== localPreview) {
                 URL.revokeObjectURL(localPreview);
             }
         } catch (err) {
             URL.revokeObjectURL(localPreview);
             setAvatarPreview(previousAvatarPreview);
-            setError(err instanceof Error ? err.message : "Ошибка загрузки фото");
+            setProfileError(err instanceof Error ? err.message : "Ошибка загрузки фото");
         }
     };
 
@@ -376,7 +387,7 @@ export default function ProfileSettingsPage() {
         }
 
         try {
-            setError(null);
+            setProfileError("");
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/profile/me`, {
                 method: "DELETE",
@@ -399,7 +410,7 @@ export default function ProfileSettingsPage() {
 
             router.push("/login");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Ошибка удаления аккаунта");
+            setProfileError(err instanceof Error ? err.message : "Ошибка удаления аккаунта");
             setDeleteOpen(false);
         }
     };
@@ -415,7 +426,8 @@ export default function ProfileSettingsPage() {
 
         try {
             setSaving(true);
-            setError(null);
+            setProfileError("");
+            setVerifyError("");
             setSuccessMessage("");
 
             if (successTimerRef.current) {
@@ -451,20 +463,29 @@ export default function ProfileSettingsPage() {
 
             const typed = normalizeProfile(data);
             if (!typed) throw new Error("Не удалось прочитать профиль");
+
+            const wasExpertVerified = profile.role === "expert" && profile.is_verified;
+            const nameChanged =
+                firstName.trim() !== profile.first_name ||
+                lastName.trim() !== profile.last_name;
+
             setProfile(typed);
             setFirstName(typed.first_name || "");
             setLastName(typed.last_name || "");
             setEmail(typed.email || "");
             setAvatarPreview(toMediaUrl(typed.avatarUrl) || null);
-            setDocumentName(typed.diploma_info || "");
 
-            setSuccessMessage("Изменения сохранены");
+            setSuccessMessage(
+                wasExpertVerified && nameChanged
+                    ? "Имя или фамилия изменены. Для статуса эксперта нужно пройти верификацию заново."
+                    : "Изменения сохранены"
+            );
 
             successTimerRef.current = setTimeout(() => {
                 setSuccessMessage("");
             }, 3000);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Ошибка сохранения");
+            setProfileError(err instanceof Error ? err.message : "Ошибка сохранения");
             setSuccessMessage("");
         } finally {
             setSaving(false);
@@ -489,12 +510,12 @@ export default function ProfileSettingsPage() {
         return <div className={styles.loader}>Загрузка настроек...</div>;
     }
 
-    if (error && !profile) {
-        return <div className={styles.loader}>{error}</div>;
+    if (profileError && !profile) {
+        return <div className={styles.loader}>{profileError}</div>;
     }
 
     if (!profile) {
-        return <div className={styles.loader}>Профиль не найден</div>;
+        return <div className={styles.loader}>Перенаправление...</div>;
     }
 
     return (
@@ -517,8 +538,6 @@ export default function ProfileSettingsPage() {
             </header>
 
             <main className={styles.container}>
-                {error && <div className={styles.errorText}>{error}</div>}
-
                 <section className={styles.settingsHead}>
                     <button
                         type="button"
@@ -554,7 +573,7 @@ export default function ProfileSettingsPage() {
                                     placeholder="Имя"
                                 />
                                 <span className={styles.namePillIcon}>
-                                    <PencilLineIcon />
+                                    <PencilLine />
                                 </span>
                             </div>
 
@@ -566,16 +585,21 @@ export default function ProfileSettingsPage() {
                                     placeholder="Фамилия"
                                 />
                                 <span className={styles.namePillIcon}>
-                                    <PencilLineIcon />
+                                    <PencilLine />
                                 </span>
                             </div>
                         </div>
                     </div>
                 </section>
 
+                {profileError ? (
+                    <p className={styles.verifyTextError}>
+                        {profileError}
+                    </p>
+                ) : null}
+
                 <section className={styles.settingsForm}>
                     <div className={styles.editField}>
-                        {/*<label className={styles.fieldLabel}>Email</label>*/}
                         <input
                             value={email}
                             readOnly
@@ -605,25 +629,28 @@ export default function ProfileSettingsPage() {
                             {profile.interests.length > 0 ? (
                                 profile.interests.map((topic) => (
                                     <span key={topic.id} className={styles.topicPillDark}>
-                        {topic.name}
-                    </span>
+                                        {topic.name}
+                                    </span>
                                 ))
                             ) : (
                                 <span className={styles.emptyTopicsText}>
-                    Нажмите, чтобы выбрать интересующие темы
-                </span>
+                                    Нажмите, чтобы выбрать интересующие темы
+                                </span>
                             )}
 
                             <span className={styles.addTopicBtn} aria-hidden="true">
-                <PlusIcon />
-            </span>
+                                <PlusIcon />
+                            </span>
                         </div>
                     </button>
                 </section>
 
                 <section className={styles.verifyBlock}>
                     <h2 className={styles.verifyTitle}>
-                        Сейчас вы — {profile.role === "expert" ? "эксперт платформы." : "пользователь платформы."}
+                        Сейчас вы —{" "}
+                        {profile.role === "expert" && profile.is_verified
+                            ? "эксперт платформы."
+                            : "пользователь платформы."}
                     </h2>
 
                     <input
@@ -635,23 +662,27 @@ export default function ProfileSettingsPage() {
                     />
 
                     <div className={styles.roleSwitch}>
-        <span
-            className={`${styles.switchBtn} ${
-                profile.role === "user" ? styles.switchBtnActive : ""
-            }`}
-        >
-            Пользователь
-        </span>
                         <span
                             className={`${styles.switchBtn} ${
-                                profile.role === "expert" ? styles.switchBtnActive : ""
+                                profile.role !== "expert" || !profile.is_verified
+                                    ? styles.switchBtnActive
+                                    : ""
                             }`}
                         >
-            Эксперт
-        </span>
+                            Пользователь
+                        </span>
+
+                        <span
+                            className={`${styles.switchBtn} ${
+                                profile.role === "expert" && profile.is_verified
+                                    ? styles.switchBtnActive
+                                    : ""
+                            }`}
+                        >
+                            Эксперт
+                        </span>
                     </div>
 
-                    {/* ❌ ЕСЛИ НЕ ЭКСПЕРТ */}
                     {profile.role !== "expert" || !profile.is_verified ? (
                         <>
                             <p className={styles.verifyText}>
@@ -662,8 +693,8 @@ export default function ProfileSettingsPage() {
                                 className={styles.uploadStub}
                                 onClick={() => documentInputRef.current?.click()}
                             >
-                                {documentName
-                                    ? `Документ: ${documentName}`
+                                {uploadedDocumentLabel
+                                    ? `Документ: ${uploadedDocumentLabel}`
                                     : "Прикрепите диплом или сертификат"}
                             </div>
 
@@ -675,15 +706,13 @@ export default function ProfileSettingsPage() {
                                 Подтвердить экспертность
                             </button>
 
-                            {/* ❌ ошибка */}
-                            {error && (
+                            {verifyError ? (
                                 <p className={styles.verifyTextError}>
-                                    {error}
+                                    {verifyError}
                                 </p>
-                            )}
+                            ) : null}
                         </>
                     ) : (
-                        /* ✅ ЕСЛИ УЖЕ ЭКСПЕРТ */
                         <>
                             <p className={styles.verifyText}>
                                 Ваш профиль эксперта подтверждён. Вы можете публиковать статьи.
@@ -693,20 +722,14 @@ export default function ProfileSettingsPage() {
                                 ✔ Диплом подтверждён
                             </p>
 
-                            {documentName && (
+                            {uploadedDocumentLabel ? (
                                 <p className={styles.verifyText}>
-                                    Документ: {documentName}
+                                    Документ: {uploadedDocumentLabel}
                                 </p>
-                            )}
+                            ) : null}
                         </>
                     )}
                 </section>
-
-                {/*{successMessage ? (*/}
-                {/*    <div className={styles.successMessageBox}>*/}
-                {/*        {successMessage}*/}
-                {/*    </div>*/}
-                {/*) : null}*/}
 
                 {successMessage ? (
                     <div className={styles.successMessageBox}>
@@ -721,7 +744,7 @@ export default function ProfileSettingsPage() {
                         onClick={handleSave}
                         disabled={saving}
                     >
-                        Сохранить изменения
+                        {saving ? "Сохраняем..." : "Сохранить изменения"}
                     </button>
 
                     <button
@@ -732,7 +755,11 @@ export default function ProfileSettingsPage() {
                         Выйти
                     </button>
 
-                    <button className={styles.deleteBtn} type="button" onClick={() => setDeleteOpen(true)}>
+                    <button
+                        className={styles.deleteBtn}
+                        type="button"
+                        onClick={() => setDeleteOpen(true)}
+                    >
                         Удалить аккаунт
                     </button>
                 </div>

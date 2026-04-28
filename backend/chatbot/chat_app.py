@@ -152,10 +152,44 @@ class ChatIn(BaseModel):
     messages: List[ChatMessage] = Field(min_length=1)
 
 
+MAX_HISTORY_MESSAGES = 5
+MAX_MESSAGE_CHARS = 1800
+MAX_TOTAL_CHARS = 7000
+
+
+def compact_chat_history(history: List[ChatMessage]) -> List[ChatMessage]:
+    recent = history[-MAX_HISTORY_MESSAGES:]
+    trimmed: List[ChatMessage] = []
+    total = 0
+
+    # Идем с конца, чтобы сохранить самые свежие реплики.
+    for msg in reversed(recent):
+        content = msg.content.strip()
+        if not content:
+            continue
+
+        if len(content) > MAX_MESSAGE_CHARS:
+            content = content[:MAX_MESSAGE_CHARS]
+
+        if total + len(content) > MAX_TOTAL_CHARS:
+            remaining = MAX_TOTAL_CHARS - total
+            if remaining <= 0:
+                break
+            content = content[:remaining]
+
+        trimmed.append(ChatMessage(role=msg.role, content=content))
+        total += len(content)
+
+        if total >= MAX_TOTAL_CHARS:
+            break
+
+    return list(reversed(trimmed))
+
+
 def ask_groq_structured(history: List[ChatMessage]) -> dict:
     if not client:
         raise HTTPException(status_code=500, detail="GROQ_API_KEY не задан")
-    history = history[-5:]
+    history = compact_chat_history(history)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages += [{"role": m.role, "content": m.content} for m in history]
@@ -166,8 +200,15 @@ def ask_groq_structured(history: List[ChatMessage]) -> dict:
             messages=messages,
         )
     except Exception as e:
-        # Groq SDK кидает исключения при 4xx/5xx. Даем читабельную причину в ответ.
+        # Groq SDK кидает исключения при 4xx/5xx. Возвращаем корректный статус.
         print("Groq chat error:", repr(e))
+        status_code = getattr(e, "status_code", None)
+        error_text = str(e)
+        if status_code == 413 or "413" in error_text or "request_too_large" in error_text:
+            raise HTTPException(
+                status_code=413,
+                detail="Слишком длинный запрос к ИИ. Сократите текст сообщения и попробуйте снова.",
+            )
         raise HTTPException(status_code=502, detail=f"Ошибка Groq API: {str(e)}")
 
     msg = resp.choices[0].message
@@ -504,6 +545,23 @@ def clean_json_text(raw_text: str) -> str:
     return raw_text.strip()
 
 
+def extract_response_text(response) -> str:
+    direct = (getattr(response, "output_text", None) or "").strip()
+    if direct:
+        return direct
+
+    output = getattr(response, "output", None) or []
+    chunks: List[str] = []
+    for item in output:
+        contents = getattr(item, "content", None) or []
+        for c in contents:
+            text = getattr(c, "text", None)
+            if isinstance(text, str) and text.strip():
+                chunks.append(text.strip())
+
+    return "\n".join(chunks).strip()
+
+
 def harden_decision(data: DiplomaAnalysis) -> DiplomaAnalysis:
     """
     Дополнительная серверная страховка.
@@ -523,8 +581,27 @@ def harden_decision(data: DiplomaAnalysis) -> DiplomaAnalysis:
     return data
 
 
+def normalize_person_name(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", value.strip().lower().replace("ё", "е"))
+
+
+def names_match(expected_first: str, expected_last: str, detected_full_name: Optional[str]) -> bool:
+    expected_first_n = normalize_person_name(expected_first)
+    expected_last_n = normalize_person_name(expected_last)
+    detected_n = normalize_person_name(detected_full_name)
+
+    if not expected_first_n or not expected_last_n or not detected_n:
+        return False
+
+    return expected_first_n in detected_n and expected_last_n in detected_n
+
+
 def build_verification_input(
     education_description: str,
+    expected_first_name: str,
+    expected_last_name: str,
     extracted_text: str,
     image_data_urls: List[str],
 ):
@@ -533,6 +610,11 @@ def build_verification_input(
             "type": "input_text",
             "text": (
                 f"{EXPERT_VERIFICATION_PROMPT}\n\n"
+                f"ОЖИДАЕМОЕ ФИО ПОЛЬЗОВАТЕЛЯ:\n"
+                f"Имя: {expected_first_name.strip()}\n"
+                f"Фамилия: {expected_last_name.strip()}\n"
+                f"Это ФИО ОБЯЗАТЕЛЬНО должно совпадать с ФИО в документе. "
+                f"Если ФИО не совпадает — decision = rejected.\n\n"
                 f"ОПИСАНИЕ ОБРАЗОВАНИЯ ОТ ПОЛЬЗОВАТЕЛЯ:\n"
                 f"{education_description.strip()}\n\n"
                 f"ИЗВЛЕЧЕННЫЙ ТЕКСТ ДОКУМЕНТА (если удалось извлечь):\n"
@@ -560,6 +642,8 @@ def build_verification_input(
 
 def call_vision_verification(
     education_description: str,
+    expected_first_name: str,
+    expected_last_name: str,
     extracted_text: str,
     image_data_urls: List[str],
 ) -> DiplomaAnalysis:
@@ -567,6 +651,8 @@ def call_vision_verification(
         raise HTTPException(status_code=500, detail="GROQ_API_KEY не задан")
     input_payload = build_verification_input(
         education_description=education_description,
+        expected_first_name=expected_first_name,
+        expected_last_name=expected_last_name,
         extracted_text=extracted_text,
         image_data_urls=image_data_urls,
     )
@@ -576,7 +662,12 @@ def call_vision_verification(
         input=input_payload,
     )
 
-    raw_text = (response.output_text or "").strip()
+    raw_text = extract_response_text(response)
+    if not raw_text:
+        raise HTTPException(
+            status_code=502,
+            detail="Модель не вернула распознаваемый текст при проверке диплома",
+        )
     json_text = clean_json_text(raw_text)
 
     try:
@@ -595,18 +686,33 @@ def call_vision_verification(
             detail=f"Не удалось провалидировать ответ модели: {str(e)}",
         )
 
-    return harden_decision(analysis)
+    analysis = harden_decision(analysis)
+
+    if not names_match(expected_first_name, expected_last_name, analysis.full_name):
+        analysis.decision = "rejected"
+        if "ФИО в документе не совпадает с ФИО профиля" not in analysis.red_flags:
+            analysis.red_flags.append("ФИО в документе не совпадает с ФИО профиля")
+        if "Имя и фамилия документа должны совпадать с данными аккаунта" not in analysis.reasons:
+            analysis.reasons.append("Имя и фамилия документа должны совпадать с данными аккаунта")
+
+    return analysis
 
 
 @app.post("/expert/verify")
 async def verify_expert(
     education_description: str = Form(...),
+    first_name: str = Form(...),
+    last_name: str = Form(...),
     file: UploadFile = File(...),
 ):
     education_description = education_description.strip()
+    first_name = first_name.strip()
+    last_name = last_name.strip()
 
     if not education_description:
         raise HTTPException(status_code=400, detail="Нужно указать образование")
+    if not first_name or not last_name:
+        raise HTTPException(status_code=400, detail="Нужно передать имя и фамилию профиля")
 
     if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
@@ -647,6 +753,8 @@ async def verify_expert(
 
         analysis = call_vision_verification(
             education_description=education_description,
+            expected_first_name=first_name,
+            expected_last_name=last_name,
             extracted_text=extracted_text,
             image_data_urls=image_data_urls,
         )

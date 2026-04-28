@@ -4,10 +4,10 @@ import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import styles from "./feed.module.css";
 import { FeedArticle, normalizeArticle } from "./normalize";
+import { useRouter } from "next/navigation";
 
 const ALL_TAG = "Bсе";
 
-/** fallback — если бек упал */
 const MOCK_ARTICLES: FeedArticle[] = [
     {
         id: "1",
@@ -44,6 +44,7 @@ function SearchIcon() {
 }
 
 export default function FeedClient() {
+    const router = useRouter();
     const [query, setQuery] = useState("");
     const [selectedTags, setSelectedTags] = useState<string[]>([ALL_TAG]);
     const [showAllTags, setShowAllTags] = useState(false);
@@ -71,13 +72,11 @@ export default function FeedClient() {
             setLoading(true);
 
             try {
-                // ВАЖНО: это твой next-route /api/articles (прокси к бэку)
                 const res = await fetch("/api/articles", { cache: "no-store" });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
                 const data: unknown = await res.json();
 
-                // допускаем [] или {items: []} или {data: []}
                 const obj = asRecord(data);
                 const listUnknown: unknown =
                     Array.isArray(data) ? data :
@@ -120,10 +119,8 @@ export default function FeedClient() {
         return articles.filter((a) => {
             const byTitle = !q || a.title.toLowerCase().includes(q);
 
-            // only "all"
             if (selectedTags.length === 1 && selectedTags[0] === ALL_TAG) return byTitle;
 
-            // OR logic for multiple tags
             const byTags =
                 selectedWithoutAll.length === 0 ? true : selectedWithoutAll.some((t) => a.tags.includes(t));
 
@@ -152,6 +149,14 @@ export default function FeedClient() {
         });
     };
 
+    const openProfile = () => {
+        if (!localStorage.getItem("token")) {
+            router.push("/login");
+            return;
+        }
+        router.push("/profile");
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.topbar}>
@@ -160,7 +165,7 @@ export default function FeedClient() {
                     <Link href="/ai" className={styles.tab}>Chat</Link>
                 </nav>
 
-                <Link href="/profile" className={styles.profileDot} aria-label="Профиль" />
+                <button type="button" className={styles.profileDot} aria-label="Профиль" onClick={openProfile} />
             </header>
 
             <main className={styles.main}>
@@ -206,7 +211,6 @@ export default function FeedClient() {
                             <Link key={a.id} href={`/feed/${a.id}`} className={styles.cardLink}>
                                 <article className={styles.card}>
                                     <div className={styles.coverWrap}>
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
                                         <img
                                             className={styles.cover}
                                             src={coverSrc(a.coverUrl)}

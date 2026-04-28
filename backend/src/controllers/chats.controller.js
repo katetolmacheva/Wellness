@@ -47,6 +47,14 @@ async function createChat(req, res) {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ message: "Не авторизован" });
 
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!userExists) {
+      return res.status(401).json({ message: "Сессия недействительна. Войдите снова." });
+    }
+
     const title = typeof req.body?.title === "string" ? req.body.title.trim() : "";
     const safeTitle = title || "Новый чат";
 
@@ -58,6 +66,9 @@ async function createChat(req, res) {
     return res.status(201).json({ chat });
   } catch (error) {
     console.error("createChat error:", error);
+    if (error && error.code === "P2003") {
+      return res.status(401).json({ message: "Сессия недействительна. Войдите снова." });
+    }
     return res.status(500).json({ message: "Ошибка создания чата" });
   }
 }
@@ -112,7 +123,6 @@ async function addMessage(req, res) {
       select: { id: true, chatId: true, role: true, text: true, createdAt: true },
     });
 
-    // bump updatedAt
     await prisma.chat.update({ where: { id: chatId }, data: {} });
 
     return res.status(201).json({ message });

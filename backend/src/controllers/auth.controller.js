@@ -46,7 +46,6 @@ function getSmtpConfig() {
     const smtpPort = Number(process.env.SMTP_PORT || 587);
     const smtpSecure = parseBool(process.env.SMTP_SECURE, smtpPort === 465);
 
-    // Частая ошибка с Gmail App Password: копируют пароль с пробелами.
     if (isGmailConfig(smtpHost, smtpUser)) {
         smtpPass = smtpPass.replace(/\s+/g, "");
     }
@@ -527,7 +526,6 @@ async function requestPasswordReset(req, res) {
             where: { email: normalizedEmail },
         });
 
-        // Не раскрываем, существует ли пользователь.
         if (!user || user.deleted_flag === "true") {
             return res.json({
                 message: "Если аккаунт существует, код восстановления отправлен на почту",

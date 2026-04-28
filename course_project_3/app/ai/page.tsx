@@ -5,6 +5,7 @@ import styles from "./ai.module.css";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useRouter } from "next/navigation";
 
 
 type ChatMessage = {
@@ -71,12 +72,13 @@ function SendIcon() {
 }
 
 export default function AiPage() {
+    const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const [chats, setChats] = useState<ChatItem[]>([]);
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
-    const [authError, setAuthError] = useState("");
     const [isGuest, setIsGuest] = useState(false);
+    const [showGuestAuthModal, setShowGuestAuthModal] = useState(false);
 
 
     const activeChat = useMemo(() => {
@@ -96,7 +98,6 @@ export default function AiPage() {
         "Как быстро справиться со стрессом и отвлечься от тревоги?",
     ];
 
-    // --- refs для автоскролла ---
     const scrollBoxRef = useRef<HTMLDivElement | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -111,13 +112,10 @@ export default function AiPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "end" });
     };
 
-    // Автоскролл при добавлении сообщений (только если пользователь внизу)
     useEffect(() => {
         if (isNearBottom()) scrollToBottom(true);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeChatId, activeChat?.messages?.length, isLoading]);
 
-    // Escape закрывает сайдбар
     useEffect(() => {
         if (!sidebarOpen) return;
         const onKeyDown = (e: globalThis.KeyboardEvent) => {
@@ -139,12 +137,16 @@ export default function AiPage() {
             if (!headers.get("Content-Type")) headers.set("Content-Type", "application/json");
         }
 
-        return await fetch(`${apiBase}${path}`, { ...init, headers, cache: "no-store" });
+        const res = await fetch(`${apiBase}${path}`, { ...init, headers, cache: "no-store" });
+        if (res.status === 401) {
+            localStorage.removeItem("token");
+            throw new Error("NO_TOKEN");
+        }
+        return res;
     };
 
     const loadChats = async () => {
         try {
-            setAuthError("");
             const res = await apiFetch("/api/chats");
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = (await res.json()) as { chats?: { id: string; title: string; createdAt: string }[] };
@@ -153,7 +155,6 @@ export default function AiPage() {
             if (list.length > 0) setActiveChatId(list[0].id);
         } catch (e) {
             if (e instanceof Error && e.message === "NO_TOKEN") {
-                setAuthError("Чтобы сохранять чаты в базе, нужно войти в аккаунт.");
                 setIsGuest(true);
 
                 const guestChatId = tmpId();
@@ -168,14 +169,20 @@ export default function AiPage() {
                 ]);
                 setActiveChatId(guestChatId);
             } else {
-                setAuthError("Не удалось загрузить чаты. Проверьте backend и токен.");
+                setIsGuest(true);
+                const guestChatId = tmpId();
+                const now = new Date().toISOString();
+                setChats([{ id: guestChatId, title: "Гостевой чат", createdAt: now, messages: [] }]);
+                setActiveChatId(guestChatId);
             }
         }
     };
 
     useEffect(() => {
+        if (!localStorage.getItem("token")) {
+            setShowGuestAuthModal(true);
+        }
         void loadChats();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -217,7 +224,6 @@ export default function AiPage() {
         setMenuForChatId(null);
     };
 
-    //const API = process.env.NEXT_PUBLIC_CHAT_API_URL;
 
     const generateTitle = async (text: string) => {
         const r = await fetch("/api/generate-title", {
@@ -262,7 +268,6 @@ export default function AiPage() {
                 )
             );
         } catch {
-            // ignore
         }
     };
 
@@ -298,11 +303,9 @@ export default function AiPage() {
         try {
             chatId = await ensureChatExists();
         } catch {
-            // guest режим: если токена нет — все равно продолжаем, просто не сохраняем в БД
             const id = tmpId();
             const now = new Date().toISOString();
             setIsGuest(true);
-            setAuthError("Гостевой режим: чат не будет сохранён. Для сохранения войдите в аккаунт.");
             setChats([{ id, title: "Гостевой чат", createdAt: now, messages: [] }]);
             setActiveChatId(id);
             chatId = id;
@@ -310,8 +313,6 @@ export default function AiPage() {
 
         const userMsg: ChatMessage = { id: tmpId(), role: "user", text: trimmed };
 
-        // Добавляем сообщение и, если это первое — сразу ставим временный заголовок
-        // (чтобы никогда не оставалось "Новый чат" после вопроса).
         let wasFirstMessage = false;
         setChats((prev) =>
             prev.map((c) => {
@@ -323,7 +324,6 @@ export default function AiPage() {
         );
 
         if (!isGuest) {
-            // сохраняем сообщение пользователя в БД
             try {
                 const saved = await apiFetch(`/api/chats/${encodeURIComponent(chatId)}/messages`, {
                     method: "POST",
@@ -344,9 +344,7 @@ export default function AiPage() {
             } catch {}
         }
 
-        // если это первое сообщение — попросим бек сгенерировать нормальное название
         if (wasFirstMessage) {
-            // затем заменим на красивый заголовок от Groq
             generateTitle(trimmed)
                 .then((title) => {
                     if (!title) return;
@@ -364,7 +362,6 @@ export default function AiPage() {
                 })
                 .catch(() => {});
 
-            // fallback title тоже фиксируем в БД
             if (!isGuest) {
                 void apiFetch(`/api/chats/${encodeURIComponent(chatId)}`, {
                     method: "PATCH",
@@ -376,17 +373,9 @@ export default function AiPage() {
         setInput("");
         setIsLoading(true);
 
-        // сразу прокрутим вниз после сообщения пользователя (без ожидания эффекта)
         requestAnimationFrame(() => scrollToBottom(true));
 
         try {
-
-            // const res = await fetch("http://127.0.0.1:8000/chat", {
-            //     method: "POST",
-            //     headers: { "Content-Type": "application/json" },
-            //     body: JSON.stringify({ messages: apiMessages }),
-            // });
-
             const currentChat = chats.find((c) => c.id === chatId);
             const history = (currentChat?.messages ?? []).slice(-5);
 
@@ -400,19 +389,21 @@ export default function AiPage() {
                 ],
             };
 
-            // const apiMessages = history.map((m) => ({
-            //     role: m.role,
-            //     content: m.text,
-            // }));
-
-
             const res = await fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+            if (!res.ok) {
+                let detail = "";
+                try {
+                    const err = await res.json() as { detail?: string; error?: string };
+                    detail = err.detail || err.error || "";
+                } catch {
+                }
+                throw new Error(detail || `Backend error: ${res.status}`);
+            }
 
             const data: { answer?: string } = await res.json();
 
@@ -427,7 +418,6 @@ export default function AiPage() {
             );
 
             if (!isGuest) {
-                // сохраняем ответ ассистента в БД
                 try {
                     const saved = await apiFetch(`/api/chats/${encodeURIComponent(chatId)}/messages`, {
                         method: "POST",
@@ -449,47 +439,20 @@ export default function AiPage() {
             }
 
             requestAnimationFrame(() => scrollToBottom(true));
-        } catch {
+        } catch (e) {
+            const fallbackText =
+                e instanceof Error && /длинн|large|413|request_too_large/i.test(e.message)
+                    ? "Сообщение получилось слишком длинным для ИИ. Сократите текст и отправьте снова."
+                    : "Не получилось получить ответ от ИИ. Проверь, что бэкенд запущен и ключ GROQ_API_KEY задан.";
             const assistantMsg: ChatMessage = {
                 id: tmpId(),
                 role: "assistant",
-                text: "Не получилось получить ответ от ИИ. Проверь, что бэкенд запущен и ключ GROQ_API_KEY задан.",
+                text: fallbackText,
             };
 
             setChats((prev) =>
                 prev.map((c) => (c.id === chatId ? { ...c, messages: [...c.messages, assistantMsg] } : c))
             );
-
-            // Если это первое сообщение в чате — генерируем название
-            /*const currentChat = chats.find((c) => c.id === activeChatId);
-
-            if (currentChat && currentChat.messages.length === 0) {
-                try {
-                    const titleRes = await fetch(
-                        `${API}/generate-title`,
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ text: trimmed }),
-                        }
-                    );
-
-                    if (titleRes.ok) {
-                        const data = await titleRes.json();
-
-                        setChats((prev) =>
-                            prev.map((c) =>
-                                c.id === activeChatId
-                                    ? { ...c, title: data.title }
-                                    : c
-                            )
-                        );
-                    }
-                } catch (e) {
-                    console.log("Ошибка генерации названия");
-                }
-            }*/
-
 
             requestAnimationFrame(() => scrollToBottom(true));
         } finally {
@@ -530,7 +493,6 @@ export default function AiPage() {
                 requestAnimationFrame(() => scrollToBottom(false));
             } catch {
                 setIsGuest(true);
-                setAuthError("Гостевой режим: чаты не сохраняются. Для сохранения войдите в аккаунт.");
                 const id = tmpId();
                 const now = new Date().toISOString();
                 setChats([{ id, title: "Гостевой чат", createdAt: now, messages: [] }]);
@@ -555,11 +517,6 @@ export default function AiPage() {
 
             <div className={styles.shell}>
                 <main className={styles.main}>
-                    {authError ? (
-                        <div style={{ padding: 12, color: "var(--danger, #d33)" }}>
-                            {authError} <Link href="/login">Войти</Link>
-                        </div>
-                    ) : null}
                     {!sidebarOpen && (
                         <button
                             type="button"
@@ -643,7 +600,7 @@ export default function AiPage() {
 
                     <div className={styles.center}>
                         {!activeChat || activeChat.messages.length === 0 ? (
-                            <>
+                            <div className={styles.emptyState}>
                                 <h1 className={styles.hero}>
                                     Здравствуйте, я — ваш помощник
                                     <br />
@@ -657,7 +614,7 @@ export default function AiPage() {
                                         </button>
                                     ))}
                                 </div>
-                            </>
+                            </div>
                         ) : (
                             <div className={styles.messages} ref={scrollBoxRef}>
                                 {activeChat.messages.map((m) => (
@@ -695,8 +652,6 @@ export default function AiPage() {
                                     </div>
                                 )}
 
-
-                                {/* якорь для скролла */}
                                 <div ref={messagesEndRef} />
                             </div>
                         )}
@@ -719,6 +674,32 @@ export default function AiPage() {
                     </div>
                 </main>
             </div>
+            {showGuestAuthModal ? (
+                <div className={styles.modalOverlay} onClick={() => setShowGuestAuthModal(false)}>
+                    <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                        <h3 className={styles.modalTitle}>Сохранять диалоги в аккаунте?</h3>
+                        <p className={styles.modalText}>
+                            Чтобы сохранять историю чатов, войдите в аккаунт. Можно продолжить в гостевом режиме.
+                        </p>
+                        <div className={styles.modalActions}>
+                            <button
+                                type="button"
+                                className={styles.modalButtonPrimary}
+                                onClick={() => router.push("/login")}
+                            >
+                                Войти
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.modalButtonSecondary}
+                                onClick={() => setShowGuestAuthModal(false)}
+                            >
+                                Позже
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

@@ -122,7 +122,6 @@ function VerifyCodePageContent() {
         setSuccess("");
 
         try {
-            // сюда потом подставишь свой реальный эндпоинт
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001"}/auth/verify-email`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -138,12 +137,10 @@ function VerifyCodePageContent() {
                 throw new Error(data.message || "Неверный код");
             }
 
-// ❗ СОХРАНЯЕМ ТОКЕН
             if (data.token) {
                 localStorage.setItem("token", data.token);
             }
 
-// ❗ СОХРАНЯЕМ ПОЛЬЗОВАТЕЛЯ (не обязательно, но лучше)
             if (data.user) {
                 localStorage.setItem("profile", JSON.stringify(data.user));
             }
@@ -168,7 +165,6 @@ function VerifyCodePageContent() {
         setSuccess("");
 
         try {
-            // сюда потом подставишь свой реальный эндпоинт
             const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3001"}/auth/resend-verification`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

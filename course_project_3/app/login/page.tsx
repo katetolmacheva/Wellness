@@ -10,7 +10,6 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
-    // задел под ошибки (позже подключишь реальный API)
     const [error, setError] = useState<string | null>(null);
 
     const router = useRouter();

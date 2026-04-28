@@ -81,7 +81,6 @@ export default function ExpertVerifyPage() {
             if (!aiData.verified) {
                 setError(aiData.message || "Диплом не прошёл проверку");
 
-                // 🔥 сохраняем причины
                 setRejectionReasons(aiData.reasons || []);
 
                 return;

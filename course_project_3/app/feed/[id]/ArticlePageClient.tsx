@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import styles from "./article.module.css";
+import { useRouter } from "next/navigation";
 
 type ArticleBlock =
     | { type: "paragraph"; text: string }
@@ -142,6 +143,7 @@ export default function ArticlePageClient({
     cover: string;
     date: string;
 }) {
+    const router = useRouter();
     const mainRef = useRef<HTMLElement | null>(null);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [isSaved, setIsSaved] = useState(false);
@@ -189,7 +191,6 @@ export default function ArticlePageClient({
     useEffect(() => {
         const token = localStorage.getItem("token");
         if (!token) {
-            setIsSaved(false);
             return;
         }
 
@@ -254,6 +255,14 @@ export default function ArticlePageClient({
         }
     };
 
+    const openProfile = () => {
+        if (!localStorage.getItem("token")) {
+            router.push("/login");
+            return;
+        }
+        router.push("/profile");
+    };
+
     return (
         <div className={styles.page}>
             <header className={styles.topbar}>
@@ -261,7 +270,7 @@ export default function ArticlePageClient({
                     <Link href="/feed" className={`${styles.tab} ${styles.tabActive}`}>Feed</Link>
                     <Link href="/ai" className={styles.tab}>Chat</Link>
                 </nav>
-                <Link href="/profile" className={styles.profileDot} aria-label="Профиль" />
+                <button type="button" className={styles.profileDot} aria-label="Профиль" onClick={openProfile} />
             </header>
 
             <main className={styles.main} ref={mainRef}>

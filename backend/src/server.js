@@ -26,9 +26,7 @@ app.use(
 
 app.use(express.json());
 
-// раздача загруженных файлов
 app.use("/uploads", express.static(path.join(__dirname, "../public/uploads")));
-// раздача статических изображений статей (seed + RSS importer кладут в public/images)
 app.use("/images", express.static(path.join(__dirname, "../public/images")));
 
 app.get("/health", (req, res) => res.json({ ok: true }));

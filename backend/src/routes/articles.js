@@ -74,10 +74,6 @@ async function moderateArticleOrThrow(payload) {
     return moderation;
 }
 
-/**
- * GET /api/articles
- * Список статей (анонс)
- */
 const {
     getMyArticles,
     getMyArticleById,
@@ -135,9 +131,6 @@ router.get("/", async (req, res) => {
     }
 });
 
-/**
- * GET /api/articles/id/:id
- */
 router.get("/id/:id", async (req, res) => {
     try {
         const article = await prisma.article.findUnique({
@@ -170,11 +163,6 @@ router.get("/:slug", async (req, res) => {
     }
 });
 
-/**
- * POST /api/articles
- * Создать новую статью (используйте аутентификацию/права на продакшне)
- * Тело: { title, authorName, authorBio?, category, annotation, imageUrl?, imageAlt?, content, sources, published? }
- */
 router.post("/", authMiddleware, async (req, res) => {
     try {
         const currentUser = await prisma.user.findUnique({
@@ -210,13 +198,11 @@ router.post("/", authMiddleware, async (req, res) => {
             });
         }
 
-        // простая slugify
         const slugBase = String(title).toLowerCase()
             .replace(/ё/g, "е")
             .replace(/[^a-zа-я0-9]+/gi, "-")
             .replace(/^-+|-+$/g, "");
 
-        // проверяем уникальность slug, добавляем суффикс при конфликте
         let slug = slugBase || `${Date.now()}`;
         let counter = 0;
         while (true) {

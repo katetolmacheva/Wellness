@@ -212,6 +212,13 @@ async function updateMe(req, res) {
         const userId = req.user.userId;
         const { firstName, lastName, email, bio, diplomaInfo, role } = req.body;
 
+        console.log("UPDATE ME HIT:", {
+            userId,
+            body: req.body,
+            url: req.originalUrl,
+            method: req.method,
+        });
+
         const currentUser = await prisma.user.findUnique({
             where: { id: userId },
         });
@@ -222,12 +229,46 @@ async function updateMe(req, res) {
 
         const data = {};
 
+        const normalizedFirstName =
+            firstName !== undefined ? String(firstName).trim() : currentUser.first_name;
+        const normalizedLastName =
+            lastName !== undefined ? String(lastName).trim() : currentUser.last_name;
+
         if (firstName !== undefined) {
-            data.first_name = String(firstName).trim();
+            data.first_name = normalizedFirstName;
         }
 
         if (lastName !== undefined) {
-            data.last_name = String(lastName).trim();
+            data.last_name = normalizedLastName;
+        }
+
+        const fullNameChanged =
+            normalizedFirstName !== currentUser.first_name ||
+            normalizedLastName !== currentUser.last_name;
+        const needsReverification =
+            currentUser.role === "expert" &&
+            currentUser.is_verified === true &&
+            fullNameChanged;
+
+        console.log("REVERIFY CHECK:", {
+            role: currentUser.role,
+            is_verified: currentUser.is_verified,
+            oldFirstName: currentUser.first_name,
+            newFirstName: normalizedFirstName,
+            oldLastName: currentUser.last_name,
+            newLastName: normalizedLastName,
+            fullNameChanged,
+            needsReverification,
+        });
+
+        if (needsReverification) {
+            data.is_verified = false;
+            data.role = "user";
+            data.diploma_info = null;
+            data.expert_document_url = null;
+            data.expert_document_name = null;
+            data.expert_verification_note =
+                "ФИО изменено. Для сохранения статуса эксперта пройдите верификацию заново.";
         }
 
         if (email !== undefined) {

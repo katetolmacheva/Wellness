@@ -5,7 +5,6 @@
     overflow-x: hidden; /* чтобы не было горизонтального обрезания */
 }
 
-/* topbar */
 .topbar {
     display: flex;
     align-items: center;
@@ -33,7 +32,6 @@
 .tabActive {
     color: #111;
 
-    /* хайлайтер как на фиде (и он будет двигаться через background-position) */
     background-image: linear-gradient(#efe2a0, #efe2a0);
     background-repeat: no-repeat;
     background-size: calc(100% + 6px) 1em;
@@ -48,7 +46,6 @@
     display: inline-block;
 }
 
-/* layout */
 .main {
     display: grid;
     grid-template-columns: 420px 60px minmax(0, 1fr);
@@ -96,7 +93,6 @@
     color: #9b9b9b;
     margin: 0 0 18px;
 
-    /* чтобы длинные слова/русский текст не раздували ширину */
     overflow-wrap: anywhere;
     word-break: break-word;
 }
@@ -142,7 +138,6 @@
     user-select: none;
 }
 
-/* divider — убираем фиксированную высоту, чтобы мобилки не резались */
 .divider {
     position: relative;
     align-self: stretch;
@@ -190,7 +185,6 @@
     word-break: break-word;
 }
 
-/* typography */
 .h1 { font-size: 34px; margin: 24px 0 12px; }
 .h2 { font-size: 24px; margin: 24px 0 10px; }
 .h3 { font-size: 18px; margin: 18px 0 8px; }
@@ -211,7 +205,6 @@
     padding: 24px;
 }
 
-/* sources toggle */
 .sourcesDetails {
     border-radius: 12px;
     background: #f3f3f3;
@@ -227,7 +220,6 @@
     user-select: none;
 }
 
-/* убрать треугольник в Safari/Chrome */
 .sourcesSummary::-webkit-details-marker {
     display: none;
 }
@@ -256,7 +248,6 @@
     transform: rotate(-135deg); /* вверх */
 }
 
-/* чтобы список не прилипал к summary */
 .sourcesDetails > .ol {
     margin-top: 12px;
 }
@@ -359,7 +350,6 @@
     color: #8f949d;
 }
 
-/* ---------- MOBILE / TABLET FIX ---------- */
 @media (max-width: 1020px) {
     .main {
         grid-template-columns: 1fr;

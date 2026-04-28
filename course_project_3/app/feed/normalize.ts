@@ -20,7 +20,6 @@ function pickFirstString(...vals: unknown[]): string {
 }
 
 function normalizeTags(raw: unknown): string[] {
-    // ["йога", "сон"] или [{name:"йога"}] или [{title:"йога"}]
     if (Array.isArray(raw)) {
         return raw
             .map((t) => {
@@ -31,7 +30,6 @@ function normalizeTags(raw: unknown): string[] {
             .filter(Boolean);
     }
 
-    // "йога, сон"
     if (typeof raw === "string") {
         return raw
             .split(",")
@@ -51,7 +49,6 @@ export function normalizeArticle(raw: unknown): FeedArticle | null {
     const coauthors =
         typeof obj.coauthors === "string" ? obj.coauthors : "";
 
-    // твой бэк отдаёт imageUrl
     const coverUrl = pickFirstString(
         obj.coverUrl,
         obj.cover_url,
@@ -63,11 +60,9 @@ export function normalizeArticle(raw: unknown): FeedArticle | null {
         obj.photo_url
     );
 
-    // твой бэк отдаёт authorName (строка)
     const authorName =
         pickFirstString(obj.authorName, obj.author_name) || "Неизвестный автор";
 
-    // твой бэк отдаёт createdAt
     const publishedAt = pickFirstString(
         obj.publishedAt,
         obj.published_at,
@@ -76,7 +71,6 @@ export function normalizeArticle(raw: unknown): FeedArticle | null {
         obj.date
     );
 
-    // ✅ ВАЖНО: если tags нет — берём category как тег
     const tagsFromApi = normalizeTags(obj.tags ?? obj.tagList ?? obj.articleTags);
     const category = pickFirstString(obj.category);
     const tags =

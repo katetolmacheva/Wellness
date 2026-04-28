@@ -22,8 +22,6 @@ export async function POST(req: Request) {
             cache: "no-store",
         });
 
-        // На некоторых деплоях chat-сервис содержит только /chat и /generate-title.
-        // В этом случае пробуем локальный AI контейнер.
         if (upstream.status === 404 && primaryBase !== "http://localhost:8000") {
             const fallbackForm = new FormData();
             for (const [key, value] of incomingForm.entries()) {
@@ -38,8 +36,19 @@ export async function POST(req: Request) {
         }
 
         const text = await upstream.text();
+        const normalizedBody = (() => {
+            if (!text) return "{}";
+            try {
+                JSON.parse(text);
+                return text;
+            } catch {
+                return JSON.stringify({
+                    detail: text.slice(0, 500),
+                });
+            }
+        })();
 
-        return new NextResponse(text, {
+        return new NextResponse(normalizedBody, {
             status: upstream.status,
             headers: { "Content-Type": "application/json" },
         });
