@@ -156,6 +156,14 @@ MAX_HISTORY_MESSAGES = 5
 MAX_MESSAGE_CHARS = 1800
 MAX_TOTAL_CHARS = 7000
 
+MAX_HISTORY_MESSAGES = int(os.environ.get("CHAT_MAX_HISTORY_MESSAGES", "5"))
+MAX_MESSAGE_CHARS = int(os.environ.get("CHAT_MAX_MESSAGE_CHARS", "1200"))
+MAX_TOTAL_CHARS = int(os.environ.get("CHAT_MAX_TOTAL_CHARS", "4500"))
+
+MAX_TITLE_INPUT_CHARS = int(os.environ.get("CHAT_MAX_TITLE_INPUT_CHARS", "700"))
+MAX_CHAT_OUTPUT_TOKENS = int(os.environ.get("CHAT_MAX_OUTPUT_TOKENS", "800"))
+MAX_TITLE_OUTPUT_TOKENS = int(os.environ.get("CHAT_TITLE_OUTPUT_TOKENS", "20"))
+
 
 def compact_chat_history(history: List[ChatMessage]) -> List[ChatMessage]:
     recent = history[-MAX_HISTORY_MESSAGES:]
@@ -198,6 +206,8 @@ def ask_groq_structured(history: List[ChatMessage]) -> dict:
         resp = client.chat.completions.create(
             model=GROQ_CHAT_MODEL,
             messages=messages,
+            max_tokens=MAX_CHAT_OUTPUT_TOKENS,
+            temperature=0.4,
         )
     except Exception as e:
         # Groq SDK кидает исключения при 4xx/5xx. Возвращаем корректный статус.
@@ -238,32 +248,45 @@ class TitleIn(BaseModel):
 def generate_title(body: TitleIn):
     if not client:
         raise HTTPException(status_code=500, detail="GROQ_API_KEY не задан")
+
     title_system = (
         "Ты генерируешь очень короткие названия чатов на русском. "
         "Дай заголовок 1–2 слова, без кавычек, без точки в конце. "
         "Он должен отражать тему, а не копировать текст дословно."
     )
 
+    text = body.text.strip()
+    if len(text) > MAX_TITLE_INPUT_CHARS:
+        text = text[:MAX_TITLE_INPUT_CHARS].rstrip()
+
     try:
         resp = client.chat.completions.create(
             model=GROQ_TITLE_MODEL,
             messages=[
                 {"role": "system", "content": title_system},
-                {"role": "user", "content": body.text},
+                {"role": "user", "content": text},
             ],
             temperature=0.2,
+            max_tokens=MAX_TITLE_OUTPUT_TOKENS,
         )
     except Exception as e:
         print("Groq title error:", repr(e))
+        status_code = getattr(e, "status_code", None)
+        error_text = str(e)
+
+        if status_code == 413 or "413" in error_text or "request_too_large" in error_text:
+            fallback = text.split("\n")[0][:18].strip()
+            return {"title": fallback or "Новый чат"}
+
         raise HTTPException(status_code=502, detail=f"Ошибка Groq API: {str(e)}")
 
     title = (resp.choices[0].message.content or "").strip()
-    title = title.strip('*"“”«» ')
+    title = title.strip('*"“”«» .')
 
     if len(title) > 18:
         title = title[:18].rstrip()
 
-    return {"title": title}
+    return {"title": title or "Новый чат"}
 
 
 # ---------- МОДЕРАЦИЯ СТАТЕЙ ----------
