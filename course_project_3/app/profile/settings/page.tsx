@@ -237,10 +237,19 @@ export default function ProfileSettingsPage() {
             setVerifyError("");
             setSuccessMessage("Проверяем диплом...");
 
+            const actualFirstName = firstName.trim() || profile?.first_name || "";
+            const actualLastName = lastName.trim() || profile?.last_name || "";
+            const actualEducationDescription =
+                profile?.diploma_info?.trim() || "Медицинское образование";
+
+            if (!actualFirstName || !actualLastName) {
+                throw new Error("Перед проверкой диплома заполните имя и фамилию в профиле");
+            }
+
             const formData = new FormData();
-            formData.append("education_description", profile?.diploma_info || "Медицинское образование");
-            formData.append("first_name", profile?.first_name || "");
-            formData.append("last_name", profile?.last_name || "");
+            formData.append("education_description", actualEducationDescription);
+            formData.append("first_name", actualFirstName);
+            formData.append("last_name", actualLastName);
             formData.append("file", file);
 
             const aiRes = await fetch("/api/expert-verify", {
@@ -279,7 +288,7 @@ export default function ProfileSettingsPage() {
                         Authorization: `Bearer ${token}`,
                     },
                     body: JSON.stringify({
-                        educationDescription: profile?.diploma_info || "",
+                        educationDescription: actualEducationDescription,
                         verified: aiData.verified,
                         message: aiData.message,
                         savedPath: aiData.saved_path,

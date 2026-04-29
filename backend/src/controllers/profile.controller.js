@@ -242,6 +242,15 @@ async function updateMe(req, res) {
             data.last_name = normalizedLastName;
         }
 
+        if (role !== undefined) {
+            if (role !== "user" && role !== "expert") {
+                return res.status(400).json({ message: "Некорректная роль" });
+            }
+
+            data.role = role;
+            data.is_verified = false;
+        }
+
         const fullNameChanged =
             normalizedFirstName !== currentUser.first_name ||
             normalizedLastName !== currentUser.last_name;
