@@ -50,23 +50,31 @@ function extractArticleText(content) {
 
 async function moderateArticleOrThrow(payload) {
     const chatbotBase = (process.env.CHATBOT_URL || "http://localhost:8000").replace(/\/$/, "");
-    const contentText = extractArticleText(payload.content);
+
+    const contentText = extractArticleText(payload.content || payload.content_text || "");
 
     const res = await fetch(`${chatbotBase}/article/moderate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            title: payload.title || "",
-            category: payload.category || "",
-            annotation: payload.annotation || "",
-            content_text: contentText,
+            title: payload.title || "Без названия",
+            category: payload.category || "статья",
+            annotation: payload.annotation || "Аннотация не указана",
+            content_text: contentText || "Текст статьи не указан. Недостаточно данных для проверки статьи.",
         }),
     });
 
     const moderation = await res.json().catch(() => ({}));
+
     if (!res.ok) {
-        const reason = moderation?.detail || moderation?.message || "Сервис модерации недоступен";
-        const err = new Error(String(reason));
+        console.error("chatbot moderation failed:", res.status, moderation);
+
+        const reason =
+            moderation?.detail
+                ? JSON.stringify(moderation.detail)
+                : moderation?.message || "Сервис модерации недоступен";
+
+        const err = new Error(reason);
         err.statusCode = 502;
         throw err;
     }
@@ -118,7 +126,7 @@ router.post("/moderate", authMiddleware, async (req, res) => {
     } catch (e) {
         console.error("article moderation error:", e);
         return res.status(e.statusCode || 500).json({
-            message: e.message || "Ошибка автоматической проверки",
+            message: typeof e.message === "string" ? e.message : JSON.stringify(e.message),
         });
     }
 });
