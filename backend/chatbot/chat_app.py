@@ -325,7 +325,7 @@ ARTICLE_MODERATION_PROMPT = """
 Формат:
 {
   "decision": "approved | rejected",
-  "confidence_score": 0,
+  "confidence_score": <целое число от 0 до 100, твоя уверенность в решении>,
   "reasons": ["..."],
   "red_flags": ["..."],
   "health_topic_match": true,
