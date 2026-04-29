@@ -63,7 +63,7 @@ async function uploadVerificationDocument(req, res) {
         await prisma.user.update({
             where: { id: req.user.userId },
             data: {
-                role: "user",
+                role: "expert",
                 is_verified: false,
                 diploma_info: fileUrl,
                 expert_document_url: fileUrl,
@@ -304,17 +304,18 @@ async function updateMe(req, res) {
             }
 
             if (role === "expert") {
-                return res.status(400).json({
-                    message: "Нельзя назначить роль эксперта напрямую. Сначала пройдите проверку диплома.",
-                });
+                data.role = "expert";
+                data.is_verified = false;
+                data.expert_verification_note =
+                    "Для получения статуса эксперта загрузите диплом и пройдите проверку.";
+            } else {
+                data.role = "user";
+                data.is_verified = false;
+                data.diploma_info = null;
+                data.expert_document_url = null;
+                data.expert_document_name = null;
+                data.expert_verification_note = null;
             }
-
-            data.role = "user";
-            data.is_verified = false;
-            data.diploma_info = null;
-            data.expert_document_url = null;
-            data.expert_document_name = null;
-            data.expert_verification_note = null;
         }
 
         if (bio !== undefined) {
@@ -325,12 +326,10 @@ async function updateMe(req, res) {
             data.diploma_info = diplomaInfo ? String(diplomaInfo).trim() : null;
 
             if (data.diploma_info) {
-                data.role = "user";
+                data.role = "expert";
                 data.is_verified = false;
-                data.expert_document_url = null;
-                data.expert_document_name = null;
                 data.expert_verification_note =
-                    "Информация об образовании обновлена. Для статуса эксперта пройдите проверку диплома.";
+                    "Информация об образовании обновлена. Для подтверждения статуса эксперта загрузите диплом.";
             }
         }
 
