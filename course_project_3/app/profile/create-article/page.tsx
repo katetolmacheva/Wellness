@@ -417,12 +417,24 @@ function CreateArticleContent() {
     };
 
     const handleModerationCheck = async (): Promise<boolean> => {
+
         const token = localStorage.getItem("token");
 
         if (!token) {
             router.push("/login");
             return false;
         }
+
+        if (annotation.trim().length < 10) {
+            setErrorMessage("Аннотация должна быть не короче 10 символов");
+            return false;
+        }
+
+        if (stripHtml(content).trim().length < 50) {
+            setErrorMessage("Текст статьи должен быть не короче 50 символов");
+            return false;
+        }
+
 
         try {
             setModerationLoading(true);
@@ -492,7 +504,7 @@ function CreateArticleContent() {
             const isApproved = await handleModerationCheck();
 
             if (!isApproved) {
-                throw new Error("Статья не прошла автоматическую проверку");
+                return;
             }
 
             let currentId = draftId;
@@ -601,6 +613,7 @@ function CreateArticleContent() {
                             onChange={(e) => setAnnotation(e.target.value)}
                             placeholder="Добавьте краткое описание вашей статьи. До 400 символов."
                             maxLength={400}
+                            minLength={10}
                         />
                     </div>
                 </section>
