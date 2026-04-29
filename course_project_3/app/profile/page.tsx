@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import styles from "./profile.module.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Role = "user" | "expert";
 
@@ -67,13 +67,6 @@ type CreatedArticlesResponse = {
     message?: string;
 };
 
-type ModerationData = {
-    status: string;
-    reasons: string[];
-    red_flags: string[];
-    confidence_score: number | null;
-};
-
 function toMediaUrl(url?: string | null) {
     if (!url) return "";
     if (url.startsWith("http://") || url.startsWith("https://")) return url;
@@ -127,7 +120,7 @@ function normalizeProfile(data: unknown): ProfileData | null {
                     !!item &&
                     typeof item === "object" &&
                     typeof (item as Interest).id === "number" &&
-                    typeof (item as Interest).name === "string"
+                    typeof (item as Interest).name === "string",
             )
             : [],
         documents: Array.isArray(raw.documents)
@@ -161,17 +154,44 @@ async function readJsonSafe<T>(res: Response): Promise<T> {
 
 function ArrowLeftIcon() {
     return (
-        <svg width="58" height="24" viewBox="0 0 58 24" fill="none" aria-hidden="true">
-            <path d="M56 12H14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-            <path d="M14 12L24 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-            <path d="M14 12L24 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <svg
+            width="58"
+            height="24"
+            viewBox="0 0 58 24"
+            fill="none"
+            aria-hidden="true"
+        >
+            <path
+                d="M56 12H14"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+            />
+            <path
+                d="M14 12L24 2"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+            />
+            <path
+                d="M14 12L24 22"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+            />
         </svg>
     );
 }
 
 function GearIcon() {
     return (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+        >
             <path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.63-.94l-.36-2.54a.5.5 0 0 0-.5-.42h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.58.22-1.13.53-1.63.94l-2.39-.96a.5.5 0 0 0-.6.22L2.65 8.84a.5.5 0 0 0 .12.64L4.8 11.06c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96c.5.41 1.05.72 1.63.94l.36 2.54a.5.5 0 0 0 .5.42h3.84a.5.5 0 0 0 .5-.42l.36-2.54c.58-.22 1.13-.53 1.63-.94l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z" />
         </svg>
     );
@@ -179,9 +199,20 @@ function GearIcon() {
 
 function SearchIcon() {
     return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+        >
             <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            <path
+                d="M16 16L20 20"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+            />
         </svg>
     );
 }
@@ -192,7 +223,13 @@ function PlusIcon() {
 
 function TrashIcon() {
     return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+        >
             <path d="M4 7H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             <path d="M10 11V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             <path d="M14 11V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -231,7 +268,9 @@ function StatArticleCard({
     return (
         <div className={styles.articleCardWrap}>
             <Link href={href} className={styles.articleCardLink}>
-                <article className={`${styles.articleCard} ${compact ? styles.articleCardCompact : ""}`}>
+                <article
+                    className={`${styles.articleCard} ${compact ? styles.articleCardCompact : ""}`}
+                >
                     <div className={styles.articleImageWrap}>
                         <img
                             src={article.image}
@@ -261,8 +300,8 @@ function StatArticleCard({
                                         isActive ? styles.cardTagPillActive : ""
                                     }`}
                                 >
-                                    {tag}
-                                </span>
+                  {tag}
+                </span>
                             );
                         })}
                     </div>
@@ -305,16 +344,6 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [savedArticles, setSavedArticles] = useState<ProfileArticle[]>([]);
     const [savedLoading, setSavedLoading] = useState(false);
-    const [createModalOpen, setCreateModalOpen] = useState(false);
-    const [publishLoading, setPublishLoading] = useState(false);
-    const [publishError, setPublishError] = useState<string | null>(null);
-    const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
-    const [moderationData, setModerationData] = useState<ModerationData | null>(null);
-    const [newTitle, setNewTitle] = useState("");
-    const [newCategory, setNewCategory] = useState("");
-    const [newAnnotation, setNewAnnotation] = useState("");
-    const [newContent, setNewContent] = useState("");
-    const moderationRef = useRef<HTMLDivElement | null>(null);
 
     const [createdArticles, setCreatedArticles] = useState<ProfileArticle[]>([]);
     const [createdLoading, setCreatedLoading] = useState(false);
@@ -418,7 +447,7 @@ export default function ProfilePage() {
                         date: formatRuDate(article.createdAt),
                         status: "published",
                         slug: article.slug,
-                    }))
+                    })),
                 );
             } finally {
                 setSavedLoading(false);
@@ -446,15 +475,12 @@ export default function ProfilePage() {
             try {
                 setCreatedLoading(true);
 
-                const res = await fetch(
-                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/articles/my`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                        },
-                        cache: "no-store",
-                    }
-                );
+                const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/articles/my`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    cache: "no-store",
+                });
 
                 const data = await readJsonSafe<CreatedArticlesResponse>(res);
 
@@ -476,8 +502,7 @@ export default function ProfilePage() {
                     updatedText: article.status === "draft" ? "Черновик" : "Опубликовано",
                     status: article.status === "draft" ? "draft" : "published",
                     slug: typeof article.slug === "string" ? article.slug : undefined,
-                    coauthors:
-                        typeof article.coauthors === "string" ? article.coauthors : "",
+                    coauthors: typeof article.coauthors === "string" ? article.coauthors : "",
                 }));
 
                 setCreatedArticles(mapped);
@@ -510,7 +535,7 @@ export default function ProfilePage() {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
-                }
+                },
             );
 
             const data = await readJsonSafe<{ message?: string }>(res);
@@ -554,102 +579,6 @@ export default function ProfilePage() {
         return "";
     }, [tab, canPublish]);
 
-    useEffect(() => {
-        if (!moderationData) return;
-        moderationRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, [moderationData]);
-
-    const closeCreateModal = () => {
-        setCreateModalOpen(false);
-        setPublishLoading(false);
-        setPublishError(null);
-        setPublishSuccess(null);
-        setModerationData(null);
-        setNewTitle("");
-        setNewCategory("");
-        setNewAnnotation("");
-        setNewContent("");
-    };
-
-    const handleCreateArticle = async () => {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        const title = newTitle.trim();
-        const category = newCategory.trim();
-        const annotation = newAnnotation.trim();
-        const content = newContent.trim();
-
-        if (!title || !category || !annotation || content.length < 50) {
-            setPublishError("Заполните все поля. Текст статьи должен быть не короче 50 символов.");
-            return;
-        }
-
-        try {
-            setPublishLoading(true);
-            setPublishError(null);
-            setPublishSuccess(null);
-            setModerationData(null);
-
-            const res = await fetch("/api/articles", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    title,
-                    category,
-                    annotation,
-                    content: [{ type: "paragraph", text: content }],
-                    sources: [],
-                }),
-            });
-
-            const data = (await readJsonSafe(res)) as Record<string, unknown>;
-
-            if (!res.ok) {
-                const message =
-                    typeof data.error === "string" ? data.error : "Не удалось опубликовать статью";
-
-                const moderationRaw =
-                    data.moderation && typeof data.moderation === "object"
-                        ? (data.moderation as Record<string, unknown>)
-                        : null;
-
-                if (res.status === 422 && moderationRaw) {
-                    const reasons = Array.isArray(moderationRaw.reasons)
-                        ? moderationRaw.reasons.filter((v): v is string => typeof v === "string")
-                        : [];
-                    const redFlags = Array.isArray(moderationRaw.red_flags)
-                        ? moderationRaw.red_flags.filter((v): v is string => typeof v === "string")
-                        : [];
-
-                    setModerationData({
-                        status: typeof moderationRaw.status === "string" ? moderationRaw.status : "rejected",
-                        reasons,
-                        red_flags: redFlags,
-                        confidence_score:
-                            typeof moderationRaw.confidence_score === "number"
-                                ? moderationRaw.confidence_score
-                                : null,
-                    });
-                    setPublishError("Статья не прошла модерацию. Исправьте текст и попробуйте снова.");
-                    return;
-                }
-
-                setPublishError(message);
-                return;
-            }
-
-            setPublishSuccess("Статья прошла модерацию и опубликована.");
-        } catch {
-            setPublishError("Ошибка сети при публикации статьи.");
-        } finally {
-            setPublishLoading(false);
-        }
-    };
-
     if (!profile) {
         return <div className={styles.loader}>Загрузка профиля...</div>;
     }
@@ -675,11 +604,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className={styles.topActions}>
-                    <Link
-                        href="/profile/settings"
-                        className={styles.settingsBtn}
-                        aria-label="Настройки"
-                    >
+                    <Link href="/profile/settings" className={styles.settingsBtn} aria-label="Настройки">
                         <GearIcon />
                     </Link>
                 </div>
@@ -699,18 +624,16 @@ export default function ProfilePage() {
                                 : undefined
                         }
                     />
+
                     <h1 className={styles.userName}>{displayName}</h1>
 
                     {role === "expert" ? (
                         <span className={styles.roleBadge}>
-                            {profile.is_verified
-                                ? "Подтверждённый эксперт"
-                                : "Эксперт · на проверке"}
-                        </span>
+              {profile.is_verified ? "Подтверждённый эксперт" : "Эксперт · на проверке"}
+            </span>
                     ) : (
                         <span className={styles.userRole}>Пользователь</span>
                     )}
-
                 </section>
 
                 <section className={styles.topicsSection}>
@@ -718,8 +641,8 @@ export default function ProfilePage() {
                     <div className={styles.topicList}>
                         {favoriteTopics.map((topic, i) => (
                             <span key={`${topic}-${i}`} className={styles.topicPill}>
-                                {topic}
-                            </span>
+                {topic}
+              </span>
                         ))}
                     </div>
                 </section>
@@ -727,9 +650,7 @@ export default function ProfilePage() {
                 <section className={styles.switchRow}>
                     <button
                         type="button"
-                        className={`${styles.switchBtn} ${
-                            tab === "saved" ? styles.switchBtnActive : ""
-                        }`}
+                        className={`${styles.switchBtn} ${tab === "saved" ? styles.switchBtnActive : ""}`}
                         onClick={() => setTab("saved")}
                     >
                         Сохраненные
@@ -737,9 +658,7 @@ export default function ProfilePage() {
 
                     <button
                         type="button"
-                        className={`${styles.switchBtn} ${
-                            tab === "created" ? styles.switchBtnActive : ""
-                        }`}
+                        className={`${styles.switchBtn} ${tab === "created" ? styles.switchBtnActive : ""}`}
                         onClick={() => setTab("created")}
                     >
                         Созданные
@@ -753,9 +672,9 @@ export default function ProfilePage() {
                         <section className={styles.contentArea}>
                             <aside className={styles.filters}>
                                 <div className={styles.searchRow}>
-                                    <span className={styles.searchIcon}>
-                                        <SearchIcon />
-                                    </span>
+                  <span className={styles.searchIcon}>
+                    <SearchIcon />
+                  </span>
 
                                     <input
                                         type="text"
@@ -775,9 +694,7 @@ export default function ProfilePage() {
                                                 key={tag}
                                                 type="button"
                                                 onClick={() => setActiveTag(tag)}
-                                                className={`${styles.tag} ${
-                                                    isActive ? styles.tagActive : ""
-                                                }`}
+                                                className={`${styles.tag} ${isActive ? styles.tagActive : ""}`}
                                             >
                                                 {tag}
                                             </button>
@@ -788,9 +705,7 @@ export default function ProfilePage() {
 
                             <div className={styles.savedGrid}>
                                 {savedLoading ? (
-                                    <div className={styles.noResults}>
-                                        Загрузка сохранённых статей...
-                                    </div>
+                                    <div className={styles.noResults}>Загрузка сохранённых статей...</div>
                                 ) : filteredSavedArticles.length > 0 ? (
                                     filteredSavedArticles.map((article) => (
                                         <StatArticleCard
@@ -801,9 +716,7 @@ export default function ProfilePage() {
                                         />
                                     ))
                                 ) : (
-                                    <div className={styles.noResults}>
-                                        У вас пока нет сохранённых статей
-                                    </div>
+                                    <div className={styles.noResults}>У вас пока нет сохранённых статей</div>
                                 )}
                             </div>
                         </section>
@@ -822,9 +735,9 @@ export default function ProfilePage() {
                             <section className={styles.contentArea}>
                                 <aside className={styles.filters}>
                                     <div className={styles.searchRow}>
-                                        <span className={styles.searchIcon}>
-                                            <SearchIcon />
-                                        </span>
+                    <span className={styles.searchIcon}>
+                      <SearchIcon />
+                    </span>
 
                                         <input
                                             type="text"
@@ -844,9 +757,7 @@ export default function ProfilePage() {
                                                     key={tag}
                                                     type="button"
                                                     onClick={() => setActiveTag(tag)}
-                                                    className={`${styles.tag} ${
-                                                        isActive ? styles.tagActive : ""
-                                                    }`}
+                                                    className={`${styles.tag} ${isActive ? styles.tagActive : ""}`}
                                                 >
                                                     {tag}
                                                 </button>
@@ -866,32 +777,26 @@ export default function ProfilePage() {
                                         />
                                     ))}
 
-                                    <button
+                                    <Link
+                                        href="/profile/create-article"
                                         className={styles.addArticleCard}
-                                        type="button"
-                                        onClick={() => setCreateModalOpen(true)}
+                                        aria-label="Создать статью"
                                     >
                                         <PlusIcon />
-                                    </button>
+                                    </Link>
                                 </div>
                             </section>
                         ) : (
                             <section className={styles.emptyState}>
-                                <h2 className={styles.emptyTitle}>
-                                    У вас пока нет опубликованных статей
-                                </h2>
+                                <h2 className={styles.emptyTitle}>У вас пока нет опубликованных статей</h2>
 
                                 <p className={styles.emptyText}>
                                     Создайте свою первую статью и отправьте её на публикацию.
                                 </p>
 
-                                <button
-                                    className={styles.primaryWideBtn}
-                                    type="button"
-                                    onClick={() => setCreateModalOpen(true)}
-                                >
+                                <Link href="/profile/create-article" className={styles.primaryWideBtn}>
                                     Создать статью
-                                </button>
+                                </Link>
                             </section>
                         )}
                     </>
@@ -925,108 +830,6 @@ export default function ProfilePage() {
                     </section>
                 )}
             </main>
-
-            {createModalOpen && (
-                <div className={styles.modalOverlay} onClick={closeCreateModal}>
-                    <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
-                        <h3 className={styles.modalTitle}>Новая статья</h3>
-                        <p className={styles.modalText}>
-                            Перед публикацией статья проходит автоматическую модерацию.
-                        </p>
-
-                        <div className={styles.createForm}>
-                            <input
-                                className={styles.createInput}
-                                placeholder="Название"
-                                value={newTitle}
-                                onChange={(e) => setNewTitle(e.target.value)}
-                            />
-                            <input
-                                className={styles.createInput}
-                                placeholder="Категория"
-                                value={newCategory}
-                                onChange={(e) => setNewCategory(e.target.value)}
-                            />
-                            <textarea
-                                className={styles.createTextarea}
-                                placeholder="Краткая аннотация"
-                                value={newAnnotation}
-                                onChange={(e) => setNewAnnotation(e.target.value)}
-                            />
-                            <textarea
-                                className={styles.createTextareaLarge}
-                                placeholder="Текст статьи"
-                                value={newContent}
-                                onChange={(e) => setNewContent(e.target.value)}
-                            />
-                        </div>
-
-                        {publishError && <div className={styles.errorText}>{publishError}</div>}
-                        {publishSuccess && <div className={styles.successText}>{publishSuccess}</div>}
-
-                        {publishSuccess && (
-                            <div className={styles.moderationStatusRow}>
-                                <span className={`${styles.moderationBadge} ${styles.moderationBadgeApproved}`}>
-                                    Прошла
-                                </span>
-                                <span className={styles.moderationHint}>
-                                    Модерация успешно пройдена, статья опубликована.
-                                </span>
-                            </div>
-                        )}
-
-                        {moderationData && (
-                            <div className={styles.moderationBox} ref={moderationRef}>
-                                <div className={styles.moderationStatusRow}>
-                                    <span className={`${styles.moderationBadge} ${styles.moderationBadgeRejected}`}>
-                                        Не прошла
-                                    </span>
-                                    <span className={styles.moderationTitle}>
-                                        Результат модерации: {moderationData.status}
-                                    {typeof moderationData.confidence_score === "number"
-                                        ? ` · ${moderationData.confidence_score}%`
-                                        : ""}
-                                    </span>
-                                </div>
-                                {moderationData.reasons.length > 0 && (
-                                    <div className={styles.moderationSection}>
-                                        <div className={styles.moderationSectionTitle}>Что исправить</div>
-                                        <div className={styles.moderationList}>
-                                            {moderationData.reasons.map((item) => (
-                                                <div key={item}>• {item}</div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                                {moderationData.red_flags.length > 0 && (
-                                    <div className={styles.moderationSection}>
-                                        <div className={styles.moderationSectionTitle}>Опасные фрагменты</div>
-                                        <div className={styles.moderationFlags}>
-                                            {moderationData.red_flags.map((item) => (
-                                                <div key={item}>⚠ {item}</div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className={styles.modalRowActions}>
-                            <button type="button" className={styles.modalHalfButton} onClick={closeCreateModal}>
-                                Закрыть
-                            </button>
-                            <button
-                                type="button"
-                                className={styles.modalHalfButton}
-                                onClick={handleCreateArticle}
-                                disabled={publishLoading}
-                            >
-                                {publishLoading ? "Публикация..." : "Опубликовать"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {articleToDelete ? (
                 <div className={styles.modalOverlay} onClick={() => setArticleToDelete(null)}>

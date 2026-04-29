@@ -5,6 +5,7 @@
     overflow-x: hidden;
 }
 
+/* topbar */
 .topbar {
     display: flex;
     justify-content: space-between;
@@ -52,6 +53,7 @@
     flex-shrink: 0;
 }
 
+/* layout */
 .layout {
     display: grid;
     grid-template-columns: 380px 42px minmax(0, 1fr);
@@ -67,6 +69,7 @@
     min-width: 0;
 }
 
+/* left */
 .imageDrop {
     width: 100%;
     aspect-ratio: 1 / 1;
@@ -152,6 +155,7 @@
     color: #c1c5cc;
 }
 
+/* divider */
 .centerDivider {
     position: relative;
     align-self: stretch;
@@ -173,6 +177,7 @@
     will-change: top;
 }
 
+/* right */
 .inlineFieldRow {
     display: grid;
     grid-template-columns: 160px 1fr;
@@ -401,6 +406,7 @@
     color: #b44a4a;
 }
 
+/* -------- large tablet -------- */
 @media (max-width: 1180px) {
     .layout {
         grid-template-columns: 320px 34px 1fr;
@@ -419,6 +425,7 @@
     }
 }
 
+/* -------- tablet -------- */
 @media (max-width: 920px) {
     .layout {
         grid-template-columns: 1fr;
@@ -448,6 +455,7 @@
     }
 }
 
+/* -------- mobile -------- */
 @media (max-width: 640px) {
     .topbar {
         padding: 18px 16px 0;
@@ -544,4 +552,79 @@
         font-size: 16px;
         padding: 0 18px;
     }
+}
+
+.moderationBox {
+    width: 100%;
+    margin-top: 18px;
+    border-radius: 18px;
+    padding: 16px 18px;
+    box-shadow: 0 8px 24px rgba(60, 66, 87, 0.08);
+}
+
+.moderationBoxApproved {
+    background: #dfeee4;
+    border: 1px solid #b7dec3;
+}
+
+.moderationBoxRejected {
+    background: #f8eaea;
+    border: 1px solid #e0b3b3;
+}
+
+.moderationStatusRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.moderationBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.moderationBadgeApproved {
+    background: #dff0e4;
+    color: #2f7a47;
+    border: 1px solid #b7dec3;
+}
+
+.moderationBadgeRejected {
+    background: #f9e0e0;
+    color: #8a2f2f;
+    border: 1px solid #e4b4b4;
+}
+
+.moderationHint {
+    font-size: 14px;
+    color: #6d727c;
+}
+
+.moderationSection {
+    margin-top: 12px;
+}
+
+.moderationSectionTitle {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #4a4a4a;
+}
+
+.moderationList {
+    margin: 0;
+    padding-left: 20px;
+    display: grid;
+    gap: 4px;
+    font-size: 14px;
+    line-height: 1.35;
+    color: #5a5a5a;
 }

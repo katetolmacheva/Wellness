@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
     ChangeEvent,
     KeyboardEvent,
-    Suspense,
     useEffect,
     useMemo,
     useRef,
@@ -17,6 +16,13 @@ import RichTextEditor from "./RichTextEditor";
 type ArticleTag = {
     id: string;
     label: string;
+};
+
+type ModerationData = {
+    status: "approved" | "rejected" | string;
+    reasons: string[];
+    red_flags: string[];
+    confidence_score: number | null;
 };
 
 type MyArticleResponse = {
@@ -39,7 +45,7 @@ type MyArticleResponse = {
 const defaultTags: ArticleTag[] = [
     { id: "yoga", label: "Йога" },
     { id: "sport", label: "Спорт" },
-    { id: "nutrition", label: "Правильно питание" },
+    { id: "nutrition", label: "Правильное питание" },
     { id: "supplements", label: "Витамины и БАДы" },
     { id: "prevention", label: "Профилактика" },
     { id: "sleep", label: "Сон" },
@@ -67,7 +73,31 @@ async function readJsonSafe<T>(res: Response): Promise<T> {
     }
 }
 
-function CreateArticlePageContent() {
+function stripHtml(html: string) {
+    return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeModerationData(data: unknown): ModerationData {
+    const raw = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
+    const nested =
+        raw.moderation && typeof raw.moderation === "object"
+            ? (raw.moderation as Record<string, unknown>)
+            : raw;
+
+    return {
+        status: typeof nested.status === "string" ? nested.status : "rejected",
+        reasons: Array.isArray(nested.reasons)
+            ? nested.reasons.filter((item): item is string => typeof item === "string")
+            : [],
+        red_flags: Array.isArray(nested.red_flags)
+            ? nested.red_flags.filter((item): item is string => typeof item === "string")
+            : [],
+        confidence_score:
+            typeof nested.confidence_score === "number" ? nested.confidence_score : null,
+    };
+}
+
+export default function CreateArticlePage() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -96,6 +126,8 @@ function CreateArticlePageContent() {
     const [saveMessage, setSaveMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
 
+    const [moderationData, setModerationData] = useState<ModerationData | null>(null);
+    const [moderationLoading, setModerationLoading] = useState(false);
 
     const coverLabel = useMemo(() => {
         if (coverFile) return coverFile.name;
@@ -113,7 +145,7 @@ function CreateArticlePageContent() {
         );
     };
 
-    const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCoverChange = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -126,6 +158,7 @@ function CreateArticlePageContent() {
         if (!raw) return "";
         if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
         if (!raw.startsWith("/")) return raw;
+
         const base = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/+$/, "");
         return base ? `${base}${raw}` : raw;
     };
@@ -150,13 +183,7 @@ function CreateArticlePageContent() {
             }
         );
 
-        const text = await res.text();
-        let data: any;
-        try {
-            data = JSON.parse(text);
-        } catch {
-            throw new Error("Сервер вернул не JSON");
-        }
+        const data = await readJsonSafe<{ imageUrl?: string; message?: string }>(res);
 
         if (!res.ok || !data.imageUrl) {
             throw new Error(data.message || "Ошибка загрузки изображения");
@@ -173,6 +200,7 @@ function CreateArticlePageContent() {
 
     const addCustomTag = () => {
         const trimmed = newTagValue.trim();
+
         if (!trimmed) {
             setIsAddingTag(false);
             return;
@@ -186,6 +214,7 @@ function CreateArticlePageContent() {
             if (!selectedTags.includes(existing.id)) {
                 setSelectedTags((prev) => [...prev, existing.id]);
             }
+
             setNewTagValue("");
             setIsAddingTag(false);
             return;
@@ -257,6 +286,7 @@ function CreateArticlePageContent() {
         if (!currentDraftId) return;
 
         const token = localStorage.getItem("token");
+
         if (!token) {
             router.push("/login");
             return;
@@ -266,6 +296,7 @@ function CreateArticlePageContent() {
             try {
                 setPageLoading(true);
                 setErrorMessage("");
+                setModerationData(null);
 
                 const res = await fetch(
                     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/articles/my/${currentDraftId}`,
@@ -327,6 +358,7 @@ function CreateArticlePageContent() {
 
     const handleSaveDraft = async (): Promise<string | null> => {
         const token = localStorage.getItem("token");
+
         if (!token) {
             router.push("/login");
             return null;
@@ -366,6 +398,7 @@ function CreateArticlePageContent() {
             }
 
             const nextDraftId = data.article.id;
+
             setDraftId(nextDraftId);
             setSaveMessage("Черновик сохранён");
 
@@ -382,8 +415,69 @@ function CreateArticlePageContent() {
         }
     };
 
+    const handleModerationCheck = async (): Promise<boolean> => {
+        const token = localStorage.getItem("token");
+
+        if (!token) {
+            router.push("/login");
+            return false;
+        }
+
+        try {
+            setModerationLoading(true);
+            setModerationData(null);
+            setErrorMessage("");
+
+            const payload = buildPayload();
+
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/articles/moderate`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        title: payload.title,
+                        category: payload.category,
+                        annotation: payload.annotation,
+                        content: stripHtml(payload.content),
+                    }),
+                }
+            );
+
+            const data = await readJsonSafe<unknown>(res);
+
+            if (!res.ok) {
+                const message =
+                    data &&
+                    typeof data === "object" &&
+                    "message" in data &&
+                    typeof data.message === "string"
+                        ? data.message
+                        : "Не удалось выполнить автоматическую проверку";
+
+                throw new Error(message);
+            }
+
+            const normalized = normalizeModerationData(data);
+            setModerationData(normalized);
+
+            return normalized.status === "approved";
+        } catch (err) {
+            setErrorMessage(
+                err instanceof Error ? err.message : "Ошибка автоматической проверки"
+            );
+            return false;
+        } finally {
+            setModerationLoading(false);
+        }
+    };
+
     const handlePublish = async () => {
         const token = localStorage.getItem("token");
+
         if (!token) {
             router.push("/login");
             return;
@@ -393,6 +487,12 @@ function CreateArticlePageContent() {
             setIsPublishing(true);
             setSaveMessage("");
             setErrorMessage("");
+
+            const isApproved = await handleModerationCheck();
+
+            if (!isApproved) {
+                throw new Error("Статья не прошла автоматическую проверку");
+            }
 
             let currentId = draftId;
 
@@ -435,8 +535,13 @@ function CreateArticlePageContent() {
             <header className={styles.topbar}>
                 <div className={styles.topbarLeft}>
                     <nav className={styles.tabs}>
-                        <Link href="/feed" className={styles.tab}>Feed</Link>
-                        <Link href="/ai" className={styles.tab}>Chat</Link>
+                        <Link href="/feed" className={styles.tab}>
+                            Feed
+                        </Link>
+
+                        <Link href="/ai" className={styles.tab}>
+                            Chat
+                        </Link>
                     </nav>
 
                     <Link href="/profile" className={styles.backBtn} aria-label="Назад">
@@ -488,6 +593,7 @@ function CreateArticlePageContent() {
 
                     <div className={styles.fieldBlock}>
                         <label className={styles.blockLabel}>Аннотация</label>
+
                         <textarea
                             className={styles.largeTextarea}
                             value={annotation}
@@ -508,6 +614,7 @@ function CreateArticlePageContent() {
                 <section className={styles.rightColumn}>
                     <div className={styles.inlineFieldRow}>
                         <label className={styles.inlineLabel}>Название статьи</label>
+
                         <input
                             className={styles.inlineInput}
                             value={title}
@@ -518,6 +625,7 @@ function CreateArticlePageContent() {
 
                     <div className={styles.inlineFieldRow}>
                         <label className={styles.inlineLabel}>Соавторы</label>
+
                         <input
                             className={styles.inlineInput}
                             value={coauthors}
@@ -537,7 +645,9 @@ function CreateArticlePageContent() {
                                     <button
                                         key={tag.id}
                                         type="button"
-                                        className={`${styles.tagPill} ${active ? styles.tagPillActive : ""}`}
+                                        className={`${styles.tagPill} ${
+                                            active ? styles.tagPillActive : ""
+                                        }`}
                                         onClick={() => toggleTag(tag.id)}
                                     >
                                         {tag.label}
@@ -585,6 +695,7 @@ function CreateArticlePageContent() {
 
                     <div className={styles.fieldBlock}>
                         <label className={styles.blockLabel}>Источники</label>
+
                         <textarea
                             className={styles.sourcesTextarea}
                             value={sources}
@@ -598,7 +709,7 @@ function CreateArticlePageContent() {
                             type="button"
                             className={styles.primaryBtn}
                             onClick={() => void handleSaveDraft()}
-                            disabled={isSavingDraft || pageLoading}
+                            disabled={isSavingDraft || pageLoading || moderationLoading}
                         >
                             {isSavingDraft ? "Сохраняем..." : "Сохранить черновик"}
                         </button>
@@ -607,25 +718,88 @@ function CreateArticlePageContent() {
                             type="button"
                             className={styles.secondaryBtn}
                             onClick={() => void handlePublish()}
-                            disabled={isPublishing || pageLoading}
+                            disabled={isPublishing || pageLoading || moderationLoading}
                         >
-                            {isPublishing ? "Публикуем..." : "Отправить на публикацию"}
+                            {isPublishing || moderationLoading
+                                ? "Проверяем..."
+                                : "Отправить на публикацию"}
                         </button>
                     </div>
 
-                    {pageLoading ? <p className={styles.statusText}>Загрузка черновика...</p> : null}
-                    {saveMessage ? <p className={styles.successText}>{saveMessage}</p> : null}
-                    {errorMessage ? <p className={styles.errorText}>{errorMessage}</p> : null}
+                    {pageLoading ? (
+                        <p className={styles.statusText}>Загрузка черновика...</p>
+                    ) : null}
+
+                    {saveMessage ? (
+                        <p className={styles.successText}>{saveMessage}</p>
+                    ) : null}
+
+                    {moderationLoading ? (
+                        <p className={styles.statusText}>Статья проходит автоматическую проверку...</p>
+                    ) : null}
+
+                    {moderationData ? (
+                        <div
+                            className={`${styles.moderationBox} ${
+                                moderationData.status === "approved"
+                                    ? styles.moderationBoxApproved
+                                    : styles.moderationBoxRejected
+                            }`}
+                        >
+                            <div className={styles.moderationStatusRow}>
+                                <span
+                                    className={`${styles.moderationBadge} ${
+                                        moderationData.status === "approved"
+                                            ? styles.moderationBadgeApproved
+                                            : styles.moderationBadgeRejected
+                                    }`}
+                                >
+                                    {moderationData.status === "approved"
+                                        ? "Проверка пройдена"
+                                        : "Проверка не пройдена"}
+                                </span>
+
+                                {typeof moderationData.confidence_score === "number" ? (
+                                    <span className={styles.moderationHint}>
+                                        Уверенность:{" "}
+                                        {Math.round(moderationData.confidence_score * 100)}%
+                                    </span>
+                                ) : null}
+                            </div>
+
+                            {moderationData.reasons.length > 0 ? (
+                                <div className={styles.moderationSection}>
+                                    <div className={styles.moderationSectionTitle}>Причины:</div>
+
+                                    <ul className={styles.moderationList}>
+                                        {moderationData.reasons.map((reason, index) => (
+                                            <li key={`reason-${index}`}>{reason}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
+
+                            {moderationData.red_flags.length > 0 ? (
+                                <div className={styles.moderationSection}>
+                                    <div className={styles.moderationSectionTitle}>
+                                        Что нужно исправить:
+                                    </div>
+
+                                    <ul className={styles.moderationList}>
+                                        {moderationData.red_flags.map((flag, index) => (
+                                            <li key={`flag-${index}`}>{flag}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    {errorMessage ? (
+                        <p className={styles.errorText}>{errorMessage}</p>
+                    ) : null}
                 </section>
             </main>
         </div>
-    );
-}
-
-export default function CreateArticlePage() {
-    return (
-        <Suspense fallback={<div className={styles.page}>Загрузка...</div>}>
-            <CreateArticlePageContent />
-        </Suspense>
     );
 }
