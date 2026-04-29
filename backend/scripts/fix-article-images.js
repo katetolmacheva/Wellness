@@ -5,10 +5,8 @@ const slugify = require("slugify");
 
 const prisma = new PrismaClient();
 
-// 1) Укажи путь к фронтовому public/images/articles
 const FRONT_IMAGES_DIR = path.resolve(__dirname, "../../course_project_3/public/images/articles");
 
-// 2) Если надо, можешь добавить и папку бэка
 const BACK_IMAGES_DIR = path.resolve(__dirname, "../public/images/articles");
 
 function fileExistsSafe(p) {
@@ -103,7 +101,6 @@ async function main() {
 
         let matchedFilename = null;
 
-        // 1. Ищем точное имя вида slug.ext
         for (const ext of [".jpg", ".jpeg", ".png", ".webp"]) {
             const candidate = `${article.slug}${ext}`;
             if (existingSet.has(candidate)) {
@@ -112,13 +109,11 @@ async function main() {
             }
         }
 
-        // 2. Ищем по img_<русское название>_<hash>.ext через slugify
         if (!matchedFilename) {
             const candidates = candidateMap.get(article.slug) || [];
             if (candidates.length === 1) {
                 matchedFilename = candidates[0];
             } else if (candidates.length > 1) {
-                // если совпадений несколько — берём png/jpg по приоритету
                 matchedFilename =
                     candidates.find((f) => f.endsWith(".png")) ||
                     candidates.find((f) => f.endsWith(".jpg")) ||

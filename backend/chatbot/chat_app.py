@@ -22,7 +22,7 @@ load_dotenv()
 
 app = FastAPI()
 
-# Разрешаем запросы с фронта (Next.js)
+# Разрешаем запросы с фронта
 cors_raw = os.environ.get("CHAT_CORS_ORIGINS", "*").strip()
 cors_origins = [o.strip() for o in cors_raw.split(",") if o.strip()] if cors_raw else ["*"]
 
@@ -41,8 +41,6 @@ GROQ_CHAT_MODEL = (os.environ.get("GROQ_CHAT_MODEL") or "groq/compound").strip()
 GROQ_TITLE_MODEL = (os.environ.get("GROQ_TITLE_MODEL") or GROQ_CHAT_MODEL).strip()
 GROQ_MODERATION_MODEL = (os.environ.get("GROQ_MODERATION_MODEL") or GROQ_CHAT_MODEL).strip()
 
-# Клиенты инициализируем только если ключ задан, чтобы сервис мог стартовать
-# (в dev/preview окружениях ключ может быть не задан).
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 vision_client = (
     OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
@@ -50,7 +48,7 @@ vision_client = (
     else None
 )
 
-# --------- SYSTEM PROMPT FOR CHAT ---------
+# --------- СИСТЕМНЫЙ ПРОМТ ДЛЯ ЧАТА ---------
 
 SYSTEM_PROMPT = r"""
 СИСТЕМНЫЙ ПРОМПТ
@@ -170,7 +168,7 @@ def compact_chat_history(history: List[ChatMessage]) -> List[ChatMessage]:
     trimmed: List[ChatMessage] = []
     total = 0
 
-    # Идем с конца, чтобы сохранить самые свежие реплики.
+    # Идем с конца, чтобы сохранить самые свежие реплики
     for msg in reversed(recent):
         content = msg.content.strip()
         if not content:
@@ -210,7 +208,6 @@ def ask_groq_structured(history: List[ChatMessage]) -> dict:
             temperature=0.4,
         )
     except Exception as e:
-        # Groq SDK кидает исключения при 4xx/5xx. Возвращаем корректный статус.
         print("Groq chat error:", repr(e))
         status_code = getattr(e, "status_code", None)
         error_text = str(e)

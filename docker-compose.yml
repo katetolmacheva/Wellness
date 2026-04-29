@@ -38,9 +38,7 @@ services:
       ports:
         - "3001:3001"
       volumes:
-        # Persist user uploads (avatars, article covers, documents) across restarts
         - wellness_uploads:/app/public/uploads
-        # Persist RSS/article images across restarts
         - wellness_images:/app/public/images
       depends_on:
         db:
@@ -66,12 +64,10 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      # optional; for production you should use explicit origins instead of "*"
       CHAT_CORS_ORIGINS: ${CHAT_CORS_ORIGINS:-*}
     ports:
       - "8000:8000"
     volumes:
-      # Persist uploaded expert docs (optional, but useful for debugging)
       - wellness_chat_uploads:/app/uploads
     restart: unless-stopped
 volumes:

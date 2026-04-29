@@ -40,7 +40,6 @@ def read_text_any_encoding(path: str) -> str:
                 return f.read()
         except UnicodeDecodeError:
             continue
-    # последний шанс: прочитать как utf-8 с заменой
     with open(path, "r", encoding="utf-8", errors="replace") as f:
         return f.read()
 
@@ -96,17 +95,17 @@ def pick_image_for_article_slug(img_index: dict, article_slug: str):
     if not article_slug:
         return None
 
-    # 1) точное совпадение
+    # точное совпадение
     if article_slug in img_index:
         return img_index[article_slug][0]
 
-    # 2) варианты с -1/-2 (если картинка так названа)
+    # варианты с -1/-2 (если картинка так названа)
     for suffix in ("-1", "-2", "-3", "-4"):
         k = f"{article_slug}{suffix}"
         if k in img_index:
             return img_index[k][0]
 
-    # 3) префикс (картинка короче, статья длиннее)
+    # префикс (картинка короче, статья длиннее)
     best_key = None
     best_len = 0
     for img_slug in img_index.keys():
@@ -118,7 +117,7 @@ def pick_image_for_article_slug(img_index: dict, article_slug: str):
     if best_key:
         return img_index[best_key][0]
 
-    # 4) "похожесть по словам" (fuzzy)
+    # похожесть по словам
     a_tokens = [t for t in article_slug.split("-") if len(t) >= 3]
     if not a_tokens:
         return None
@@ -152,7 +151,7 @@ def pick_image_for_article_slug(img_index: dict, article_slug: str):
             best_score = score
             best_key = img_slug
 
-    # порог: чтобы не присваивать совсем левую картинку
+    # чтобы не присваивать совсем левую картинку
     if best_key and best_score >= 12:  # обычно common >=2
         return img_index[best_key][0]
 
@@ -191,7 +190,7 @@ def parse_article(text: str, filename: str):
         "sources": []
     }
 
-    # сохраняем пустые строки как разделители не нужно — но фильтруем совсем пустые
+    # сохраняем пустые строки как разделители не нужно, но фильтруем совсем пустые
     raw_lines = [ln.replace("\r", "").strip() for ln in text.split("\n")]
     lines = [ln for ln in raw_lines if ln.strip()]
 
@@ -244,7 +243,7 @@ def parse_article(text: str, filename: str):
                 j += 1
             break
 
-        # Контентные метки
+        # контентные метки
         elif is_label(line, "Заголовок"):
             j = next_nonempty(i)
             if j < len(lines):
@@ -292,7 +291,7 @@ def main():
 
     img_index = build_image_index()
     if not img_index:
-        print("❌ Не нашёл PNG в articles_images_raw. Проверь папку и расширения.")
+        print("Не нашёл PNG в articles_images_raw. Проверь папку и расширения.")
         return
 
     articles = []
@@ -340,12 +339,12 @@ def main():
         json.dump(articles, f, ensure_ascii=False, indent=2)
 
     found = len(articles) - len(missing)
-    print(f"✅ articles.json создан: {len(articles)} статей")
-    print(f"✅ Картинки скопированы в: {FRONT_IMAGES_DIR}")
-    print(f"✅ Найдено картинок: {found} из {len(articles)}")
+    print(f"articles.json создан: {len(articles)} статей")
+    print(f"Картинки скопированы в: {FRONT_IMAGES_DIR}")
+    print(f"Найдено картинок: {found} из {len(articles)}")
 
     if missing:
-        print("\n⚠️ Не нашёл картинки для:")
+        print("\nНе нашёл картинки для:")
         for x in missing:
             print(" -", x)
 
