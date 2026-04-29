@@ -56,12 +56,48 @@ export default function ExpertVerifyPage() {
         setSuccess("");
 
         try {
+            const profileRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/profile/me`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                cache: "no-store",
+            });
+
+            const profileData = await profileRes.json();
+
+            if (!profileRes.ok) {
+                throw new Error(profileData.message || "Не удалось загрузить профиль");
+            }
+
+            const firstName =
+                profileData.first_name ||
+                profileData.firstName ||
+                localStorage.getItem("firstName") ||
+                localStorage.getItem("first_name") ||
+                "";
+
+            const lastName =
+                profileData.last_name ||
+                profileData.lastName ||
+                localStorage.getItem("lastName") ||
+                localStorage.getItem("last_name") ||
+                "";
+
+            if (!firstName.trim() || !lastName.trim()) {
+                throw new Error("Не найдены имя и фамилия. Вернитесь на предыдущий шаг регистрации и заполните данные.");
+            }
+
             const formData = new FormData();
             formData.append("education_description", education.trim());
+            formData.append("first_name", firstName.trim());
+            formData.append("last_name", lastName.trim());
             formData.append("file", file);
 
             const aiRes = await fetch("/api/expert-verify", {
                 method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
                 body: formData,
             });
 
