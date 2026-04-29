@@ -91,6 +91,9 @@ export default function AiPage() {
     const [isLoading, setIsLoading] = useState(false);
 
     const [menuForChatId, setMenuForChatId] = useState<string | null>(null);
+    const [editingChatId, setEditingChatId] = useState<string | null>(null);
+    const [editingTitle, setEditingTitle] = useState("");
+    const [deleteChatId, setDeleteChatId] = useState<string | null>(null);
 
     const suggestions = [
         "Расскажи о витаминах, которые стоит принимать зимой",
@@ -192,12 +195,33 @@ export default function AiPage() {
         return () => document.removeEventListener("click", onDoc);
     }, [menuForChatId]);
 
-    const renameChat = (id: string) => {
+    const startRenameChat = (id: string) => {
         const current = chats.find((c) => c.id === id);
-        const next = prompt("Новое название чата:", current?.title ?? "");
-        if (!next) return;
-        const trimmed = next.trim();
-        if (!trimmed) return;
+        if (!current) return;
+        setEditingChatId(id);
+        setEditingTitle(current.title);
+        setMenuForChatId(null);
+    };
+
+    const cancelRenameChat = () => {
+        setEditingChatId(null);
+        setEditingTitle("");
+    };
+
+    const saveRenameChat = (id: string) => {
+        const trimmed = editingTitle.trim();
+        const current = chats.find((c) => c.id === id);
+
+        if (!current) {
+            cancelRenameChat();
+            return;
+        }
+
+        if (!trimmed || trimmed === current.title) {
+            cancelRenameChat();
+            return;
+        }
+
         setChats((prev) => prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c)));
         if (!isGuest) {
             void apiFetch(`/api/chats/${encodeURIComponent(id)}`, {
@@ -205,11 +229,18 @@ export default function AiPage() {
                 body: JSON.stringify({ title: trimmed }),
             }).catch(() => {});
         }
+
+        cancelRenameChat();
     };
 
-    const deleteChat = (id: string) => {
-        const ok = confirm("Удалить этот чат?");
-        if (!ok) return;
+    const askDeleteChat = (id: string) => {
+        setDeleteChatId(id);
+        setMenuForChatId(null);
+    };
+
+    const confirmDeleteChat = () => {
+        if (!deleteChatId) return;
+        const id = deleteChatId;
 
         if (!isGuest) {
             void apiFetch(`/api/chats/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
@@ -221,7 +252,8 @@ export default function AiPage() {
             return next;
         });
 
-        setMenuForChatId(null);
+        setDeleteChatId(null);
+        if (editingChatId === id) cancelRenameChat();
     };
 
 
@@ -557,16 +589,32 @@ export default function AiPage() {
                                     const active = c.id === activeChatId;
                                     return (
                                         <div key={c.id} className={styles.chatRow}>
-                                            <button
-                                                type="button"
-                                                className={`${styles.chatItem} ${active ? styles.chatItemActive : ""}`}
-                                                onClick={() => {
-                                                    setActiveChatId(c.id);
-                                                    if (c.messages.length === 0) void loadChatMessages(c.id);
-                                                }}
-                                            >
-                                                {c.title}
-                                            </button>
+                                            {editingChatId === c.id ? (
+                                                <input
+                                                    className={`${styles.chatRenameInput} ${active ? styles.chatRenameInputActive : ""}`}
+                                                    value={editingTitle}
+                                                    autoFocus
+                                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    onBlur={() => saveRenameChat(c.id)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === "Enter") saveRenameChat(c.id);
+                                                        if (e.key === "Escape") cancelRenameChat();
+                                                    }}
+                                                    aria-label="Новое название чата"
+                                                />
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.chatItem} ${active ? styles.chatItemActive : ""}`}
+                                                    onClick={() => {
+                                                        setActiveChatId(c.id);
+                                                        if (c.messages.length === 0) void loadChatMessages(c.id);
+                                                    }}
+                                                >
+                                                    {c.title}
+                                                </button>
+                                            )}
 
                                             <button
                                                 type="button"
@@ -582,10 +630,10 @@ export default function AiPage() {
 
                                             {menuForChatId === c.id && (
                                                 <div className={styles.chatMenu} onClick={(e) => e.stopPropagation()}>
-                                                    <button type="button" className={styles.chatMenuItem} onClick={() => renameChat(c.id)}>
+                                                    <button type="button" className={styles.chatMenuItem} onClick={() => startRenameChat(c.id)}>
                                                         Переименовать
                                                     </button>
-                                                    <button type="button" className={styles.chatMenuItemDanger} onClick={() => deleteChat(c.id)}>
+                                                    <button type="button" className={styles.chatMenuItemDanger} onClick={() => askDeleteChat(c.id)}>
                                                         Удалить
                                                     </button>
                                                 </div>
@@ -695,6 +743,32 @@ export default function AiPage() {
                                 onClick={() => setShowGuestAuthModal(false)}
                             >
                                 Позже
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+            {deleteChatId ? (
+                <div className={styles.modalOverlay} onClick={() => setDeleteChatId(null)}>
+                    <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
+                        <h3 className={styles.modalTitle}>Удалить диалог?</h3>
+                        <p className={styles.modalText}>
+                            Вы уверены, что хотите удалить этот диалог? Это действие нельзя отменить.
+                        </p>
+                        <div className={styles.modalActions}>
+                            <button
+                                type="button"
+                                className={styles.modalButtonSecondary}
+                                onClick={() => setDeleteChatId(null)}
+                            >
+                                Нет
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.modalButtonDanger}
+                                onClick={confirmDeleteChat}
+                            >
+                                Да, удалить
                             </button>
                         </div>
                     </div>

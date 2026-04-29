@@ -85,8 +85,15 @@ function normalizeModerationData(data: unknown): ModerationData {
             ? (raw.moderation as Record<string, unknown>)
             : raw;
 
+    const status =
+        typeof nested.status === "string"
+            ? nested.status
+            : typeof nested.decision === "string"
+                ? nested.decision
+                : "rejected";
+
     return {
-        status: typeof nested.status === "string" ? nested.status : "rejected",
+        status,
         reasons: Array.isArray(nested.reasons)
             ? nested.reasons.filter((item): item is string => typeof item === "string")
             : [],
@@ -94,7 +101,7 @@ function normalizeModerationData(data: unknown): ModerationData {
             ? nested.red_flags.filter((item): item is string => typeof item === "string")
             : [],
         confidence_score:
-            typeof nested.confidence_score === "number" ? nested.confidence_score : null,
+            typeof nested.confidence_score === "number" ? nested.confidence_score : 0,
     };
 }
 
@@ -137,6 +144,18 @@ function CreateArticleContent() {
     }, [coverFile, coverRemoteUrl]);
 
     const allTags = useMemo(() => [...defaultTags, ...customTags], [customTags]);
+
+    const normalizeLoadedTags = (tags: string[]) => {
+        return tags.map((tagValue) => {
+            const found = allTags.find(
+                (tag) =>
+                    tag.id === tagValue ||
+                    tag.label.toLowerCase() === tagValue.toLowerCase()
+            );
+
+            return found ? found.id : tagValue;
+        });
+    };
 
     const toggleTag = (tagId: string) => {
         setSelectedTags((prev) =>
@@ -323,7 +342,9 @@ function CreateArticleContent() {
                 setContent(article.content || "");
                 setCoauthors(article.coauthors || "");
                 setSources(Array.isArray(article.sourcesList) ? article.sourcesList.join("\n") : "");
-                setSelectedTags(Array.isArray(article.tags) ? article.tags : []);
+                setSelectedTags(
+                    Array.isArray(article.tags) ? normalizeLoadedTags(article.tags) : []
+                );
                 setCoverRemoteUrl(article.imageUrl || "");
                 setCoverPreview(assetUrl(article.imageUrl || ""));
             } catch (err) {
@@ -338,22 +359,29 @@ function CreateArticleContent() {
         void loadDraft();
     }, [router, searchParams]);
 
+    const getTagLabel = (tagIdOrLabel: string) => {
+        return allTags.find((tag) => tag.id === tagIdOrLabel)?.label || tagIdOrLabel;
+    };
+
     const buildPayload = () => {
         const safeTitle = title.trim() || "Без названия";
+
+        const selectedTagLabels = selectedTags.map(getTagLabel);
+        const mainCategory = selectedTagLabels[0] || "статья";
 
         return {
             title: safeTitle,
             annotation,
             content,
             coauthors,
-            tags: selectedTags,
+            tags: selectedTagLabels,
             sources: sources
                 .split("\n")
                 .map((item) => item.trim())
                 .filter(Boolean),
             imageUrl: coverRemoteUrl || "",
             imageAlt: safeTitle,
-            category: selectedTags[0] || "статья",
+            category: mainCategory,
         };
     };
 

@@ -669,3 +669,41 @@
         padding: 10px 8px 128px;
     }
 }
+
+.chatRenameInput {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e8e8e8;
+    padding: 0 12px;
+    outline: none;
+    font-size: 14px;
+}
+
+.chatRenameInputActive {
+    background: #efe2a0;
+    color: #111;
+    border-color: #efe2a0;
+}
+
+.chatRenameInput:focus {
+    box-shadow: 0 0 0 2px rgba(239, 226, 160, 0.35);
+}
+
+.modalButtonDanger {
+    flex: 1;
+    border-radius: 999px;
+    height: 42px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    background: #ffb4b4;
+    color: #241111;
+}
+
+.modalButtonDanger:hover {
+    background: #ffc6c6;
+}
