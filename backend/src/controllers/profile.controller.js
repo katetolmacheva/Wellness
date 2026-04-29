@@ -63,9 +63,12 @@ async function uploadVerificationDocument(req, res) {
         await prisma.user.update({
             where: { id: req.user.userId },
             data: {
-                role: "expert",
+                role: "user",
                 is_verified: false,
                 diploma_info: fileUrl,
+                expert_document_url: fileUrl,
+                expert_document_name: req.file.originalname || null,
+                expert_verification_note: "Документ загружен и ожидает проверки.",
             },
         });
 
@@ -210,7 +213,8 @@ async function getMe(req, res) {
 async function updateMe(req, res) {
     try {
         const userId = req.user.userId;
-        const { firstName, lastName, email, bio, diplomaInfo, role } = req.body;
+        const { firstName, lastName, email, bio, diplomaInfo } = req.body;
+        const role = req.body.role;
 
         console.log("UPDATE ME HIT:", {
             userId,
@@ -240,15 +244,6 @@ async function updateMe(req, res) {
 
         if (lastName !== undefined) {
             data.last_name = normalizedLastName;
-        }
-
-        if (role !== undefined) {
-            if (role !== "user" && role !== "expert") {
-                return res.status(400).json({ message: "Некорректная роль" });
-            }
-
-            data.role = role;
-            data.is_verified = false;
         }
 
         const fullNameChanged =
@@ -308,8 +303,18 @@ async function updateMe(req, res) {
                 return res.status(400).json({ message: "Некорректная роль" });
             }
 
-            data.role = role;
+            if (role === "expert") {
+                return res.status(400).json({
+                    message: "Нельзя назначить роль эксперта напрямую. Сначала пройдите проверку диплома.",
+                });
+            }
+
+            data.role = "user";
             data.is_verified = false;
+            data.diploma_info = null;
+            data.expert_document_url = null;
+            data.expert_document_name = null;
+            data.expert_verification_note = null;
         }
 
         if (bio !== undefined) {
@@ -320,8 +325,12 @@ async function updateMe(req, res) {
             data.diploma_info = diplomaInfo ? String(diplomaInfo).trim() : null;
 
             if (data.diploma_info) {
-                data.role = "expert";
+                data.role = "user";
                 data.is_verified = false;
+                data.expert_document_url = null;
+                data.expert_document_name = null;
+                data.expert_verification_note =
+                    "Информация об образовании обновлена. Для статуса эксперта пройдите проверку диплома.";
             }
         }
 

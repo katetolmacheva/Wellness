@@ -252,6 +252,17 @@ export default function ProfileSettingsPage() {
             formData.append("last_name", actualLastName);
             formData.append("file", file);
 
+            console.log("VERIFY FORM FROM PAGE:", {
+                education_description: actualEducationDescription,
+                first_name: actualFirstName,
+                last_name: actualLastName,
+                file: {
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                },
+            });
+
             const aiRes = await fetch("/api/expert-verify", {
                 method: "POST",
                 body: formData,
