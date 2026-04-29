@@ -509,12 +509,9 @@ def file_to_data_url(file_bytes: bytes, mime_type: str) -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
-def pdf_to_png_data_urls(pdf_bytes: bytes, max_pages: int = 3) -> List[str]:
-    """
-    Рендерим первые страницы PDF в PNG и отправляем их как изображения в vision-модель.
-    Для диплома обычно хватает 1-2 страниц.
-    """
-    data_urls: List[str] = []
+def pdf_to_png_data_urls(pdf_bytes: bytes, max_pages: int = 1) -> List[str]:
+    data_urls = []
+
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
     pages_count = min(len(doc), max_pages)
@@ -522,15 +519,21 @@ def pdf_to_png_data_urls(pdf_bytes: bytes, max_pages: int = 3) -> List[str]:
     for i in range(pages_count):
         page = doc.load_page(i)
 
-        # Увеличиваем масштаб для лучшей читаемости текста
-        matrix = fitz.Matrix(2.0, 2.0)
-        pix = page.get_pixmap(matrix=matrix, alpha=False)
+        # уменьшенный рендер
+        matrix = fitz.Matrix(1.0, 1.0)
 
-        png_bytes = pix.tobytes("png")
-        data_urls.append(file_to_data_url(png_bytes, "image/png"))
+        pix = page.get_pixmap(
+            matrix=matrix,
+            alpha=False,
+        )
+
+        jpg_bytes = pix.tobytes("jpeg")
+
+        data_urls.append(
+            file_to_data_url(jpg_bytes, "image/jpeg")
+        )
 
     return data_urls
-
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """

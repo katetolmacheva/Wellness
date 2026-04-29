@@ -72,6 +72,7 @@ function getSmtpConfig() {
 
 function createTransporter() {
     const cfg = getSmtpConfig();
+
     return nodemailer.createTransport({
         host: cfg.smtpHost,
         port: cfg.smtpPort,
@@ -86,25 +87,116 @@ function createTransporter() {
     });
 }
 
-async function sendVerificationEmail(email, code) {
-    const cfg = getSmtpConfig();
-    const transporter = createTransporter();
+function getFromEmail() {
+    const smtpFrom = (process.env.SMTP_FROM || "").trim();
+
+    if (!smtpFrom) {
+        throw new Error("SMTP_FROM is not configured");
+    }
+
+    return smtpFrom;
+}
+
+async function sendEmailViaBrevoApi({ to, subject, text, html }) {
+    const apiKey = (process.env.BREVO_API_KEY || "").trim();
+    const fromEmail = getFromEmail();
+
+    if (!apiKey) {
+        throw new Error("BREVO_API_KEY is not configured");
+    }
+
+    console.log("Brevo API send start", to);
+
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+            "api-key": apiKey,
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        },
+        body: JSON.stringify({
+            sender: {
+                name: "Wellness",
+                email: fromEmail,
+            },
+            to: [{ email: to }],
+            subject,
+            textContent: text,
+            htmlContent: html,
+        }),
+    });
+
+    if (!response.ok) {
+        let details = "";
+
+        try {
+            details = JSON.stringify(await response.json());
+        } catch (_) {
+            details = await response.text();
+        }
+
+        throw new Error(`Brevo API error ${response.status}: ${details}`);
+    }
+
+    console.log("Brevo API send ok", to);
+}
+
+async function sendEmailWithFallback({ to, subject, text, html }) {
+    let cfg;
 
     try {
-        console.log("SMTP verify start", {
+        cfg = getSmtpConfig();
+        const transporter = createTransporter();
+
+        console.log("SMTP send start", {
             host: cfg.smtpHost,
             port: cfg.smtpPort,
             secure: cfg.smtpSecure,
             user: cfg.smtpUser,
+            to,
         });
-        console.log("sendMail start", email);
 
         await transporter.sendMail({
             from: `Wellness <${cfg.smtpFrom}>`,
-            to: email,
-            subject: "Код подтверждения Wellness",
-            text: `Ваш код подтверждения: ${code}. Код действует 10 минут.`,
-            html: `
+            to,
+            subject,
+            text,
+            html,
+        });
+
+        console.log("SMTP send ok", to);
+        return;
+    } catch (smtpError) {
+        console.warn("SMTP send failed, trying Brevo API", {
+            code: smtpError.code,
+            message: smtpError.message,
+        });
+
+        try {
+            await sendEmailViaBrevoApi({ to, subject, text, html });
+            return;
+        } catch (apiError) {
+            console.error("Brevo API send failed", apiError.message);
+
+            const msg = mapSmtpErrorToPublicMessage(
+                smtpError,
+                cfg?.smtpHost || process.env.SMTP_HOST,
+                cfg?.smtpUser || process.env.SMTP_USER
+            );
+
+            const wrapped = new Error(msg || "Не удалось отправить письмо. SMTP и Brevo API недоступны.");
+            wrapped.code = smtpError.code || apiError.code;
+            throw wrapped;
+        }
+    }
+}
+
+async function sendVerificationEmail(email, code) {
+    await sendEmailWithFallback({
+        to: email,
+        subject: "Код подтверждения Wellness",
+        text: `Ваш код подтверждения: ${code}. Код действует 10 минут.`,
+        html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.5;">
         <h2>Подтверждение почты</h2>
         <p>Ваш код подтверждения:</p>
@@ -114,30 +206,15 @@ async function sendVerificationEmail(email, code) {
         <p>Код действует 10 минут.</p>
       </div>
     `,
-        });
-    } catch (error) {
-        const msg = mapSmtpErrorToPublicMessage(error, cfg.smtpHost, cfg.smtpUser);
-        if (msg) {
-            const wrapped = new Error(msg);
-            wrapped.code = error.code;
-            throw wrapped;
-        }
-        throw error;
-    }
-    console.log("SMTP verify ok");
+    });
 }
 
 async function sendPasswordResetEmail(email, code) {
-    try {
-        const cfg = getSmtpConfig();
-        const transporter = createTransporter();
-
-        await transporter.sendMail({
-            from: `Wellness <${cfg.smtpFrom}>`,
-            to: email,
-            subject: "Восстановление пароля Wellness",
-            text: `Ваш код для восстановления пароля: ${code}. Код действует 10 минут.`,
-            html: `
+    await sendEmailWithFallback({
+        to: email,
+        subject: "Восстановление пароля Wellness",
+        text: `Ваш код для восстановления пароля: ${code}. Код действует 10 минут.`,
+        html: `
       <div style="font-family: Arial, sans-serif; line-height: 1.5;">
         <h2>Восстановление пароля</h2>
         <p>Ваш код для смены пароля:</p>
@@ -147,17 +224,7 @@ async function sendPasswordResetEmail(email, code) {
         <p>Код действует 10 минут.</p>
       </div>
     `,
-        });
-    } catch (error) {
-        const cfg = getSmtpConfig();
-        const msg = mapSmtpErrorToPublicMessage(error, cfg.smtpHost, cfg.smtpUser);
-        if (msg) {
-            const wrapped = new Error(msg);
-            wrapped.code = error.code;
-            throw wrapped;
-        }
-        throw error;
-    }
+    });
 }
 
 async function register(req, res) {
@@ -207,7 +274,6 @@ async function register(req, res) {
             });
         }
 
-
         const passwordHash = await bcrypt.hash(password, 10);
 
         const user = await prisma.user.create({
@@ -244,6 +310,7 @@ async function register(req, res) {
         });
     } catch (error) {
         console.error("register error:", error);
+
         return res.status(500).json({
             message: "Ошибка регистрации",
             error: error.message || "Неизвестная ошибка",
@@ -312,6 +379,7 @@ async function restoreAccount(req, res) {
         });
     } catch (error) {
         console.error("restoreAccount error:", error);
+
         return res.status(500).json({
             message: "Ошибка восстановления аккаунта",
             error: error.message || "Неизвестная ошибка",
@@ -395,6 +463,7 @@ async function verifyEmail(req, res) {
         });
     } catch (error) {
         console.error("verifyEmail error:", error);
+
         return res.status(500).json({
             message: "Ошибка подтверждения",
             error: error.message,
@@ -438,9 +507,13 @@ async function resendVerificationCode(req, res) {
 
         await sendVerificationEmail(user.email, code);
 
-        return res.json({ message: "Новый код отправлен", email: user.email });
+        return res.json({
+            message: "Новый код отправлен",
+            email: user.email,
+        });
     } catch (error) {
         console.error("resendVerificationCode error:", error);
+
         return res.status(500).json({
             message: "Ошибка повторной отправки кода",
             error: error.message || "Неизвестная ошибка",
@@ -506,6 +579,7 @@ async function login(req, res) {
         });
     } catch (error) {
         console.error("login error:", error);
+
         return res.status(500).json({
             message: "Ошибка входа",
             error: error.message,
@@ -551,6 +625,7 @@ async function requestPasswordReset(req, res) {
         });
     } catch (error) {
         console.error("requestPasswordReset error:", error);
+
         return res.status(500).json({
             message: "Ошибка отправки кода восстановления",
             error: error.message || "Неизвестная ошибка",
@@ -611,6 +686,7 @@ async function confirmPasswordReset(req, res) {
         return res.json({ message: "Пароль успешно обновлён" });
     } catch (error) {
         console.error("confirmPasswordReset error:", error);
+
         return res.status(500).json({
             message: "Ошибка смены пароля",
             error: error.message || "Неизвестная ошибка",
